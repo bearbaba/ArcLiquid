@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi'
+import { useAccount, useDisconnect, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import { toast } from 'sonner'
 
@@ -9,7 +9,6 @@ const lendingPoolAbi = [] as const
 
 export default function App() {
   const { isConnected } = useAccount()
-  const { connect } = useConnect()
   const { disconnect } = useDisconnect()
   const [activeTab, setActiveTab] = useState<'supply' | 'borrow'>('supply')
   const [amount, setAmount] = useState('')
@@ -36,7 +35,7 @@ export default function App() {
               Disconnect
             </button>
           ) : (
-            <button onClick={() => connect()} className="flex items-center gap-2 px-8 py-4 bg-white text-black rounded-2xl font-semibold hover:bg-zinc-200">
+            <button onClick={() => window.open('https://arc-liquid.vercel.app', '_blank')} className="flex items-center gap-2 px-8 py-4 bg-white text-black rounded-2xl font-semibold hover:bg-zinc-200">
               Connect Wallet
             </button>
           )}
