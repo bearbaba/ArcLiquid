@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useAccount, useConnect, useDisconnect, useReadContract, useWriteContract } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import { toast } from 'sonner'
 import { Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 
 const LENDING_POOL_ADDRESS = '0xYourDeployedLendingPoolAddressHere' as `0x${string}`
 
-const lendingPoolAbi = [ /* Giữ ABI cũ */ ] as const
+const lendingPoolAbi = [
+  // ABI giữ nguyên như trước
+] as const
 
 export default function App() {
   const { address, isConnected } = useAccount()
@@ -21,8 +23,6 @@ export default function App() {
     functionName: 'getPoolStats',
   })
 
-  const { writeContract } = useWriteContract()
-
   const totalSupplied = poolStats ? formatUnits(poolStats[0], 6) : '0'
 
   return (
@@ -35,11 +35,11 @@ export default function App() {
           </div>
 
           {isConnected ? (
-            <button onClick={() => disconnect()} className="flex items-center gap-2 bg-red-500/10 text-red-400 px-6 py-3 rounded-2xl hover:bg-red-500/20">
+            <button onClick={() => disconnect()} className="flex items-center gap-2 bg-zinc-800 px-6 py-3 rounded-2xl hover:bg-zinc-700">
               Disconnect {address?.slice(0,6)}...
             </button>
           ) : (
-            <button onClick={() => connect()} className="flex items-center gap-2 bg-white text-black px-8 py-4 rounded-2xl font-semibold hover:bg-zinc-200">
+            <button onClick={() => connect()} className="flex items-center gap-2 bg-white text-black px-8 py-4 rounded-2xl font-semibold hover:bg-zinc-200 transition">
               <Wallet className="w-5 h-5" />
               Connect Wallet
             </button>
@@ -47,17 +47,17 @@ export default function App() {
         </div>
 
         <div className="text-center mb-12">
-          <p className="text-6xl font-bold">{totalSupplied} USDC</p>
-          <p className="text-zinc-400">Total Supplied</p>
+          <p className="text-6xl font-bold">{totalSupplied} <span className="text-2xl">USDC</span></p>
+          <p className="text-zinc-400 mt-1">Total Supplied</p>
         </div>
 
         <div className="bg-zinc-900 rounded-3xl p-10">
           <div className="flex mb-8 border-b border-zinc-800">
-            <button onClick={() => setActiveTab('supply')} className={`flex-1 py-4 text-lg ${activeTab === 'supply' ? 'border-b-4 border-emerald-500 text-white' : 'text-zinc-400'}`}>
-              <ArrowUpCircle className="inline mr-2" /> Supply
+            <button onClick={() => setActiveTab('supply')} className={`flex-1 py-4 text-lg font-medium ${activeTab === 'supply' ? 'border-b-4 border-emerald-500' : 'text-zinc-400'}`}>
+              Supply
             </button>
-            <button onClick={() => setActiveTab('borrow')} className={`flex-1 py-4 text-lg ${activeTab === 'borrow' ? 'border-b-4 border-emerald-500 text-white' : 'text-zinc-400'}`}>
-              <ArrowDownCircle className="inline mr-2" /> Borrow
+            <button onClick={() => setActiveTab('borrow')} className={`flex-1 py-4 text-lg font-medium ${activeTab === 'borrow' ? 'border-b-4 border-emerald-500' : 'text-zinc-400'}`}>
+              Borrow
             </button>
           </div>
 
@@ -65,14 +65,11 @@ export default function App() {
             type="number" 
             value={amount} 
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-6 py-6 text-4xl text-center focus:outline-none"
-            placeholder="0.00"
+            className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-8 py-6 text-4xl text-center focus:outline-none focus:border-emerald-500"
+            placeholder="0.00 USDC"
           />
 
-          <button 
-            onClick={() => toast.success('Action triggered! (Demo)')}
-            className="mt-8 w-full py-6 bg-emerald-500 hover:bg-emerald-600 rounded-2xl text-xl font-bold transition"
-          >
+          <button onClick={() => toast.info('Demo action')} className="mt-8 w-full py-6 bg-emerald-500 hover:bg-emerald-600 rounded-2xl text-xl font-bold transition">
             {activeTab === 'supply' ? 'Supply USDC' : 'Borrow USDC'}
           </button>
         </div>
