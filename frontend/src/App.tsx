@@ -6,10 +6,10 @@ import { Wallet } from 'lucide-react'
 
 const LENDING_POOL_ADDRESS = '0xYourDeployedLendingPoolAddressHere' as `0x${string}`
 
-const lendingPoolAbi = [] as const // Thêm ABI sau nếu cần
+const lendingPoolAbi = [] as const
 
 export default function App() {
-  const { address, isConnected } = useAccount()
+  const { isConnected } = useAccount()
   const { connect } = useConnect()
   const { disconnect } = useDisconnect()
   const [activeTab, setActiveTab] = useState<'supply' | 'borrow'>('supply')
@@ -33,11 +33,11 @@ export default function App() {
           </div>
 
           {isConnected ? (
-            <button onClick={() => disconnect()} className="px-6 py-3 bg-zinc-800 rounded-2xl">
+            <button onClick={() => disconnect()} className="px-6 py-3 bg-zinc-800 rounded-2xl hover:bg-zinc-700">
               Disconnect
             </button>
           ) : (
-            <button onClick={() => connect()} className="flex items-center gap-2 px-8 py-4 bg-white text-black rounded-2xl font-semibold">
+            <button onClick={() => connect()} className="flex items-center gap-2 px-8 py-4 bg-white text-black rounded-2xl font-semibold hover:bg-zinc-200">
               <Wallet className="w-5 h-5" />
               Connect Wallet
             </button>
@@ -63,7 +63,7 @@ export default function App() {
             placeholder="0.00"
           />
 
-          <button onClick={() => toast.info('Demo')} className="mt-8 w-full py-6 bg-emerald-500 rounded-2xl text-xl font-bold">
+          <button onClick={() => toast.info('Demo action')} className="mt-8 w-full py-6 bg-emerald-500 rounded-2xl text-xl font-bold hover:bg-emerald-600">
             {activeTab === 'supply' ? 'Supply USDC' : 'Borrow USDC'}
           </button>
         </div>
