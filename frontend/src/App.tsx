@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import { toast } from 'sonner'
-import { Wallet } from 'lucide-react'
 
 const LENDING_POOL_ADDRESS = '0xYourDeployedLendingPoolAddressHere' as `0x${string}`
 
@@ -38,7 +37,6 @@ export default function App() {
             </button>
           ) : (
             <button onClick={() => connect()} className="flex items-center gap-2 px-8 py-4 bg-white text-black rounded-2xl font-semibold hover:bg-zinc-200">
-              <Wallet className="w-5 h-5" />
               Connect Wallet
             </button>
           )}
@@ -63,7 +61,7 @@ export default function App() {
             placeholder="0.00"
           />
 
-          <button onClick={() => toast.info('Demo action')} className="mt-8 w-full py-6 bg-emerald-500 rounded-2xl text-xl font-bold hover:bg-emerald-600">
+          <button onClick={() => toast.info('Demo')} className="mt-8 w-full py-6 bg-emerald-500 rounded-2xl text-xl font-bold hover:bg-emerald-600">
             {activeTab === 'supply' ? 'Supply USDC' : 'Borrow USDC'}
           </button>
         </div>
