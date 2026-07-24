@@ -16,10 +16,10 @@ contract LendingPool is ReentrancyGuard, Ownable {
 
     uint256 public constant WAD = 1e18;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
-    uint256 public constant LTV_BPS = 7_500; // 75.00%
+    uint256 public constant LTV_BPS = 7_500;               // 75.00%
     uint256 public constant LIQUIDATION_THRESHOLD_BPS = 7_500;
-    uint256 public constant LIQUIDATION_BONUS_BPS = 500; // 5.00%
-    uint256 public constant CLOSE_FACTOR_BPS = 5_000; // 50.00%
+    uint256 public constant LIQUIDATION_BONUS_BPS = 500;  // 5.00%
+    uint256 public constant CLOSE_FACTOR_BPS = 5_000;     // 50.00%
     uint256 private constant BPS_DENOMINATOR = 10_000;
 
     IERC20 public immutable asset;
@@ -41,7 +41,7 @@ contract LendingPool is ReentrancyGuard, Ownable {
 
     struct SupplierAccount {
         uint256 scaledSupply;
-        uint256 collateral;
+        uint256 collateral; // underlying amount marked as collateral (kept for compatibility)
     }
 
     struct BorrowerAccount {
@@ -104,6 +104,165 @@ contract LendingPool is ReentrancyGuard, Ownable {
         lastAccrualTimestamp = block.timestamp;
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Core user functions
+    // ─────────────────────────────────────────────────────────────
+
+    function supply(uint256 amount)
+        external
+        nonReentrant
+        accrue
+        onlyCompliant(msg.sender)
+    {
+        if (amount == 0) revert ZeroAmount();
+
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+
+        uint256 scaled = (amount * WAD) / supplyIndex;
+        SupplierAccount storage account = suppliers[msg.sender];
+        account.scaledSupply += scaled;
+        account.collateral += amount; // keep underlying tracking
+        totalScaledSupply += scaled;
+
+        emit Supply(msg.sender, amount);
+    }
+
+    function withdraw(uint256 amount)
+        external
+        nonReentrant
+        accrue
+        onlyCompliant(msg.sender)
+    {
+        if (amount == 0) revert ZeroAmount();
+
+        SupplierAccount storage account = suppliers[msg.sender];
+        uint256 currentBalance = (account.scaledSupply * supplyIndex) / WAD;
+        if (amount > currentBalance) amount = currentBalance;
+
+        // liquidity check
+        uint256 available = asset.balanceOf(address(this));
+        if (amount > available) revert InsufficientLiquidity();
+
+        uint256 scaled = (amount * WAD) / supplyIndex;
+        if (scaled > account.scaledSupply) scaled = account.scaledSupply;
+
+        account.scaledSupply -= scaled;
+        if (account.collateral > amount) {
+            account.collateral -= amount;
+        } else {
+            account.collateral = 0;
+        }
+        totalScaledSupply -= scaled;
+
+        // health factor check after withdrawal
+        if (_healthFactor(msg.sender) < WAD) revert HealthFactorTooLow();
+
+        asset.safeTransfer(msg.sender, amount);
+        emit Withdraw(msg.sender, amount);
+    }
+
+    function borrow(uint256 amount)
+        external
+        nonReentrant
+        accrue
+        onlyCompliant(msg.sender)
+    {
+        if (amount == 0) revert ZeroAmount();
+
+        // liquidity check
+        uint256 available = asset.balanceOf(address(this));
+        if (amount > available) revert InsufficientLiquidity();
+
+        uint256 scaled = (amount * WAD) / borrowIndex;
+        borrowers[msg.sender].scaledDebt += scaled;
+        totalScaledDebt += scaled;
+
+        // health factor must remain healthy after borrow
+        if (_healthFactor(msg.sender) < WAD) revert HealthFactorTooLow();
+
+        asset.safeTransfer(msg.sender, amount);
+        emit Borrow(msg.sender, amount);
+    }
+
+    function repay(uint256 amount)
+        external
+        nonReentrant
+        accrue
+    {
+        if (amount == 0) revert ZeroAmount();
+
+        BorrowerAccount storage account = borrowers[msg.sender];
+        uint256 currentDebt = (account.scaledDebt * borrowIndex) / WAD;
+        if (currentDebt == 0) revert ZeroAmount();
+
+        uint256 actualRepay = amount > currentDebt ? currentDebt : amount;
+
+        asset.safeTransferFrom(msg.sender, address(this), actualRepay);
+
+        uint256 scaled = (actualRepay * WAD) / borrowIndex;
+        if (scaled > account.scaledDebt) scaled = account.scaledDebt;
+
+        account.scaledDebt -= scaled;
+        totalScaledDebt -= scaled;
+
+        emit Repay(msg.sender, msg.sender, actualRepay);
+    }
+
+    function liquidate(address borrowerAddr, uint256 repayAmount)
+        external
+        nonReentrant
+        accrue
+        onlyCompliant(msg.sender)
+    {
+        if (repayAmount == 0) revert ZeroAmount();
+
+        uint256 healthFactor_ = _healthFactor(borrowerAddr);
+        if (healthFactor_ >= WAD) revert HealthFactorTooHigh();
+
+        BorrowerAccount storage account = borrowers[borrowerAddr];
+        uint256 currentDebt = (account.scaledDebt * borrowIndex) / WAD;
+        if (currentDebt == 0) revert NothingToLiquidate();
+
+        uint256 maxRepay = (currentDebt * CLOSE_FACTOR_BPS) / BPS_DENOMINATOR;
+        uint256 actualRepay = repayAmount > maxRepay ? maxRepay : repayAmount;
+        if (actualRepay > currentDebt) actualRepay = currentDebt;
+
+        uint256 seizeAmount = actualRepay + (actualRepay * LIQUIDATION_BONUS_BPS) / BPS_DENOMINATOR;
+
+        SupplierAccount storage collateralAccount = suppliers[borrowerAddr];
+        uint256 currentCollateralBalance = (collateralAccount.scaledSupply * supplyIndex) / WAD;
+        if (seizeAmount > currentCollateralBalance) {
+            seizeAmount = currentCollateralBalance;
+        }
+
+        asset.safeTransferFrom(msg.sender, address(this), actualRepay);
+
+        // reduce debt
+        uint256 scaledRepay = (actualRepay * WAD) / borrowIndex;
+        if (scaledRepay > account.scaledDebt) scaledRepay = account.scaledDebt;
+        account.scaledDebt -= scaledRepay;
+        totalScaledDebt -= scaledRepay;
+
+        // seize collateral
+        uint256 scaledSeize = (seizeAmount * WAD) / supplyIndex;
+        if (scaledSeize > collateralAccount.scaledSupply) scaledSeize = collateralAccount.scaledSupply;
+        collateralAccount.scaledSupply -= scaledSeize;
+        if (collateralAccount.collateral > seizeAmount) {
+            collateralAccount.collateral -= seizeAmount;
+        } else {
+            collateralAccount.collateral = 0;
+        }
+        totalScaledSupply -= scaledSeize;
+
+        asset.safeTransfer(msg.sender, seizeAmount);
+
+        emit Liquidate(msg.sender, borrowerAddr, actualRepay, seizeAmount);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Interest accrual & rate model
+    // ─────────────────────────────────────────────────────────────
+
     function _accrueInterest() internal {
         uint256 elapsed = block.timestamp - lastAccrualTimestamp;
         if (elapsed == 0) return;
@@ -136,145 +295,28 @@ contract LendingPool is ReentrancyGuard, Ownable {
         emit InterestAccrued(supplyIndex, borrowIndex, block.timestamp);
     }
 
-    function _getBorrowRatePerYear(uint256 totalDebt, uint256 totalSupply_) public view returns (uint256) {
-        if (totalSupply_ == 0) return baseRatePerYear;
-        uint256 utilization = (totalDebt * WAD) / totalSupply_;
-
-        if (utilization <= optimalUtilization) {
-            return baseRatePerYear + (slope1PerYear * utilization) / optimalUtilization;
-        }
-
-        uint256 excessUtilization = utilization - optimalUtilization;
-        uint256 maxExcess = WAD - optimalUtilization;
-        return baseRatePerYear + slope1PerYear + (slope2PerYear * excessUtilization) / maxExcess;
-    }
-
-    function getBorrowRatePerYear() external view returns (uint256) {
-        return _getBorrowRatePerYear(_totalDebt(), _totalSupply());
-    }
-
-    function getSupplyRatePerYear() external view returns (uint256) {
-        uint256 totalDebt = _totalDebt();
-        uint256 totalSupply_ = _totalSupply();
-        if (totalSupply_ == 0) return 0;
-        uint256 borrowRate = _getBorrowRatePerYear(totalDebt, totalSupply_);
-        uint256 utilization = (totalDebt * WAD) / totalSupply_;
-        uint256 grossSupplyRate = (borrowRate * utilization) / WAD;
-        return (grossSupplyRate * (WAD - reserveFactor)) / WAD;
-    }
-
-    function supply(uint256 amount) external nonReentrant accrue onlyCompliant(msg.sender) {
-        if (amount == 0) revert ZeroAmount();
-
-        asset.safeTransferFrom(msg.sender, address(this), amount);
-
-        uint256 scaled = (amount * WAD) / supplyIndex;
-        suppliers[msg.sender].scaledSupply += scaled;
-        suppliers[msg.sender].collateral += amount;
-        totalScaledSupply += scaled;
-
-        emit Supply(msg.sender, amount);
-    }
-
-    function withdraw(uint256 amount) external nonReentrant accrue {
-        if (amount == 0) revert ZeroAmount();
-
-        SupplierAccount storage account = suppliers[msg.sender];
-        uint256 currentBalance = (account.scaledSupply * supplyIndex) / WAD;
-        if (amount > currentBalance) revert InsufficientLiquidity();
-        if (asset.balanceOf(address(this)) < amount) revert InsufficientLiquidity();
-
-        uint256 scaledAmount = (amount * WAD) / supplyIndex;
-        account.scaledSupply -= scaledAmount;
-        account.collateral = account.collateral > amount ? account.collateral - amount : 0;
-        totalScaledSupply -= scaledAmount;
-
-        if (_healthFactor(msg.sender) < WAD && borrowers[msg.sender].scaledDebt > 0) {
-            revert HealthFactorTooLow();
-        }
-
-        asset.safeTransfer(msg.sender, amount);
-        emit Withdraw(msg.sender, amount);
-    }
-
-    function borrow(uint256 amount) external nonReentrant accrue onlyCompliant(msg.sender) {
-        if (amount == 0) revert ZeroAmount();
-        if (asset.balanceOf(address(this)) < amount) revert InsufficientLiquidity();
-
-        uint256 scaled = (amount * WAD) / borrowIndex;
-        borrowers[msg.sender].scaledDebt += scaled;
-        totalScaledDebt += scaled;
-
-        if (_healthFactor(msg.sender) < WAD) revert InsufficientCollateral();
-
-        asset.safeTransfer(msg.sender, amount);
-        emit Borrow(msg.sender, amount);
-    }
-
-    function repay(address borrowerAddr, uint256 amount) external nonReentrant accrue {
-        if (amount == 0) revert ZeroAmount();
-
-        BorrowerAccount storage account = borrowers[borrowerAddr];
-        uint256 currentDebt = (account.scaledDebt * borrowIndex) / WAD;
-        uint256 repayAmount = amount > currentDebt ? currentDebt : amount;
-        if (repayAmount == 0) revert ZeroAmount();
-
-        asset.safeTransferFrom(msg.sender, address(this), repayAmount);
-
-        uint256 scaledRepay = (repayAmount * WAD) / borrowIndex;
-        scaledRepay = scaledRepay > account.scaledDebt ? account.scaledDebt : scaledRepay;
-        account.scaledDebt -= scaledRepay;
-        totalScaledDebt -= scaledRepay;
-
-        emit Repay(msg.sender, borrowerAddr, repayAmount);
-    }
-
-    function liquidate(address borrowerAddr, uint256 repayAmount)
-        external
-        nonReentrant
-        accrue
-        onlyCompliant(msg.sender)
+    function _getBorrowRatePerYear(uint256 totalDebt, uint256 totalSupply_)
+        internal
+        view
+        returns (uint256)
     {
-        if (repayAmount == 0) revert ZeroAmount();
+        if (totalSupply_ == 0) return baseRatePerYear;
 
-        uint256 healthFactor = _healthFactor(borrowerAddr);
-        if (healthFactor >= WAD) revert HealthFactorTooHigh();
+        uint256 util = (totalDebt * WAD) / totalSupply_;
 
-        BorrowerAccount storage account = borrowers[borrowerAddr];
-        uint256 currentDebt = (account.scaledDebt * borrowIndex) / WAD;
-        if (currentDebt == 0) revert NothingToLiquidate();
-
-        uint256 maxRepay = (currentDebt * CLOSE_FACTOR_BPS) / BPS_DENOMINATOR;
-        uint256 actualRepay = repayAmount > maxRepay ? maxRepay : repayAmount;
-        if (actualRepay > currentDebt) revert RepayExceedsCloseFactor();
-
-        uint256 seizeAmount = actualRepay + (actualRepay * LIQUIDATION_BONUS_BPS) / BPS_DENOMINATOR;
-
-        SupplierAccount storage collateralAccount = suppliers[borrowerAddr];
-        uint256 currentCollateralBalance = (collateralAccount.scaledSupply * supplyIndex) / WAD;
-        if (seizeAmount > currentCollateralBalance) {
-            seizeAmount = currentCollateralBalance;
+        if (util <= optimalUtilization) {
+            // base + slope1 * util
+            return baseRatePerYear + (slope1PerYear * util) / WAD;
+        } else {
+            // base + slope1 + slope2 * excess
+            uint256 excessUtil = util - optimalUtilization;
+            return baseRatePerYear + slope1PerYear + (slope2PerYear * excessUtil) / WAD;
         }
-
-        asset.safeTransferFrom(msg.sender, address(this), actualRepay);
-
-        uint256 scaledRepay = (actualRepay * WAD) / borrowIndex;
-        scaledRepay = scaledRepay > account.scaledDebt ? account.scaledDebt : scaledRepay;
-        account.scaledDebt -= scaledRepay;
-        totalScaledDebt -= scaledRepay;
-
-        uint256 scaledSeize = (seizeAmount * WAD) / supplyIndex;
-        scaledSeize = scaledSeize > collateralAccount.scaledSupply ? collateralAccount.scaledSupply : scaledSeize;
-        collateralAccount.scaledSupply -= scaledSeize;
-        collateralAccount.collateral = collateralAccount.collateral > seizeAmount
-            ? collateralAccount.collateral - seizeAmount
-            : 0;
-
-        totalScaledSupply -= scaledSeize;
-        asset.safeTransfer(msg.sender, seizeAmount);
-
-        emit Liquidate(msg.sender, borrowerAddr, actualRepay, seizeAmount);
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // View helpers
+    // ─────────────────────────────────────────────────────────────
 
     function _healthFactor(address user) internal view returns (uint256) {
         uint256 collateralValue = (suppliers[user].scaledSupply * supplyIndex) / WAD;
@@ -329,6 +371,15 @@ contract LendingPool is ReentrancyGuard, Ownable {
         return (_totalDebt() * WAD) / s;
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Compliance
+    // ─────────────────────────────────────────────────────────────
+
+    function enableCompliance() external {
+        isCompliant[msg.sender] = true;
+        emit ComplianceStatusUpdated(msg.sender, true);
+    }
+
     function setComplianceEnabled(bool enabled) external onlyOwner {
         complianceEnabled = enabled;
         emit ComplianceModeUpdated(enabled);
@@ -338,6 +389,10 @@ contract LendingPool is ReentrancyGuard, Ownable {
         isCompliant[user] = status;
         emit ComplianceStatusUpdated(user, status);
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Admin
+    // ─────────────────────────────────────────────────────────────
 
     function setRateModel(
         uint256 _baseRatePerYear,
@@ -358,7 +413,12 @@ contract LendingPool is ReentrancyGuard, Ownable {
         reserveFactor = _reserveFactor;
     }
 
-    function withdrawReserves(address to, uint256 amount) external onlyOwner nonReentrant accrue {
+    function withdrawReserves(address to, uint256 amount)
+        external
+        onlyOwner
+        nonReentrant
+        accrue
+    {
         require(amount <= totalReserves, "exceeds reserves");
         require(asset.balanceOf(address(this)) >= amount, "insufficient liquidity");
         totalReserves -= amount;
