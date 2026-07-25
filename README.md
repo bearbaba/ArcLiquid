@@ -2,7 +2,33 @@
 
 
 
-Lending protocol on Circle Arc Testnet with multi-asset pools and stablecoin swap.
+A permissionless money market and stable swap built natively on \*\*Arc Testnet\*\*.
+
+
+
+Flowlend lets users supply, borrow, swap and provide liquidity using USDC, EURC and cirBTC — with a clean interface and fair liquidity design.
+
+
+
+\---
+
+
+
+\## Why Flowlend?
+
+
+
+\- Designed specifically for Arc (Circle’s Economic OS)
+
+\- Supports native USDC as gas token
+
+\- Fair liquidity shares — anyone can add and remove their own liquidity
+
+\- Simple but complete lending market with Health Factor and utilization-based rates
+
+
+
+\---
 
 
 
@@ -10,15 +36,41 @@ Lending protocol on Circle Arc Testnet with multi-asset pools and stablecoin swa
 
 
 
-\- Lending pools: Supply / Withdraw / Borrow / Repay
+\*\*Lending Market\*\*
 
-\- Assets: USDC, EURC, cirBTC
+\- Supply / Withdraw / Borrow / Repay
 
-\- Swap: USDC ↔ EURC via SimpleStableSwap
+\- Dynamic interest rate model
 
-\- Compliance: Screen wallet against Arc USDC blocklist
+\- Health Factor monitoring
 
-\- Health Factor and utilization metrics
+\- Max LTV 75%
+
+\- Built-in compliance screening
+
+
+
+\*\*Stable Swap\*\*
+
+\- USDC ↔ EURC
+
+\- Low fee (0.04%)
+
+\- Slippage protection
+
+
+
+\*\*Liquidity\*\*
+
+\- Add and remove liquidity for the USDC-EURC pair
+
+\- Transparent share percentage
+
+\- Fully permissionless withdrawal
+
+
+
+\---
 
 
 
@@ -26,7 +78,57 @@ Lending protocol on Circle Arc Testnet with multi-asset pools and stablecoin swa
 
 
 
-https://flowlend-silk.vercel.app
+https://your-vercel-link.vercel.app
+
+
+
+\---
+
+
+
+\## Network Info
+
+
+
+| Parameter     | Value |
+
+|---------------|-------|
+
+| Network       | Arc Testnet |
+
+| Chain ID      | 5042002 |
+
+| RPC           | https://5042002.rpc.thirdweb.com |
+
+| Explorer      | https://testnet.arcscan.app |
+
+| Faucet        | https://faucet.circle.com |
+
+
+
+\---
+
+
+
+\## Deployed Contracts
+
+
+
+| Contract            | Address |
+
+|---------------------|---------|
+
+| USDC Lending Pool   | `0x1CA2e7B022f13A546Deb665901A8EfE8d407d864` |
+
+| EURC Lending Pool   | `0x4455eb4351936996B71fa87425037d7f744F40A2` |
+
+| cirBTC Lending Pool | `0x75EA2cFAb03B92822Be363853643E0a538Ab275C` |
+
+| SimpleStableSwap    | `0x30547bD3c187A1914a1F63bA593EEd437AC2f58f` |
+
+
+
+\---
 
 
 
@@ -34,93 +136,17 @@ https://flowlend-silk.vercel.app
 
 
 
-\- React + Vite + TypeScript
+\- \*\*Contracts:\*\* Solidity 0.8.20 + Foundry  
 
-\- wagmi + viem + RainbowKit
+\- \*\*Frontend:\*\* React + TypeScript + Vite  
 
-\- Tailwind CSS
+\- \*\*Web3:\*\* Wagmi v2 + Viem + RainbowKit  
 
-\- Arc Testnet (chain ID 5042002)
-
-
-
-\## Contracts (Arc Testnet)
+\- \*\*Styling:\*\* Tailwind CSS  
 
 
 
-| Contract | Address |
-
-|----------|---------|
-
-| USDC Pool | 0x1CA2e7B022f13A546Deb665901A8EfE8d407d864 |
-
-| EURC Pool | 0x4455eb4351936996B71fa87425037d7f744F40A2 |
-
-| cirBTC Pool | 0x75EA2cFAb03B92822Be363853643E0a538Ab275C |
-
-| SimpleStableSwap | 0x4ff36f84A850A5A9DB826fA4Cd49E21128503CE8 |
-
-
-
-\## Getting Started
-
-
-
-\### Install
-
-
-
-cd frontend
-
-npm install
-
-
-
-\### Run locally
-
-
-
-npm run dev
-
-
-
-\### Connect wallet
-
-
-
-1\. Add Arc Testnet to MetaMask
-
-2\. Get test tokens from https://faucet.circle.com
-
-3\. Import USDC / EURC / cirBTC tokens
-
-
-
-\## Project Structure
-
-
-
-frontend/
-
-&#x20; src/
-
-&#x20;   App.tsx           Main UI
-
-&#x20;   lib/circleKit.ts  Swap helpers + network helper
-
-&#x20;   wagmi.ts          wagmi config
-
-
-
-\## Notes
-
-
-
-\- Gas on Arc Testnet is paid in USDC
-
-\- Swap uses on-chain SimpleStableSwap contract
-
-\- Bridge tab is placeholder for future CCTP integration
+\---
 
 
 
