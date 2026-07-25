@@ -141,6 +141,7 @@ export default function App() {
   const asset = ASSETS[assetId]
   const poolLive = !!asset.pool
   const poolAddr = (asset.pool || ASSETS.USDC.pool!) as `0x${string}`
+  const swapTokenAddr = (swapFrom === 'USDC' ? ASSETS.USDC.address : ASSETS.EURC.address) as `0x${string}`
 
   const { writeContract, data: hash, isPending, reset } = useWriteContract()
   const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({ hash })
@@ -255,6 +256,13 @@ export default function App() {
     args: address && poolLive ? [address, poolAddr] : undefined,
   })
 
+  const { data: swapAllowance, refetch: refetchSwapAllowance } = useReadContract({
+    address: swapTokenAddr,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address ? [address, SWAP_POOL] : undefined,
+  })
+
   const { data: userSupply, refetch: refetchUserSupply } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
@@ -309,6 +317,7 @@ export default function App() {
     refetchCirbtc()
     refetchUsyc()
     refetchAllowance()
+    refetchSwapAllowance()
     refetchTotalSupply()
     refetchTotalDebt()
     refetchUtil()
@@ -333,6 +342,8 @@ export default function App() {
 
   const parsedAmount = amount ? parseUnits(amount, asset.decimals) : 0n
   const isApproved = !!(allowance && amount && allowance >= parsedAmount)
+  const swapParsed = swapAmount ? parseUnits(swapAmount, 6) : 0n
+  const isSwapApproved = !!(swapAllowance && swapAmount && swapAllowance >= swapParsed)
   const swapFromBal = swapFrom === 'USDC' ? usdcBal : eurcBal
   const utilNumber = util ? Number(util) / 1e18 : 0
   const isLendTab = tab === 'supply' || tab === 'withdraw' || tab === 'borrow' || tab === 'repay'
@@ -415,47 +426,53 @@ export default function App() {
     )
   }
 
-  const runSwap = () => {
-    if (!isConnected || !address) return toast.error('Connect wallet first')
-    if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
+  const approveSwap = () => {
     if (!swapAmount || Number(swapAmount) <= 0) return toast.error('Enter amount')
-
-    const tokenInAddr = (swapFrom === 'USDC'
-      ? '0x3600000000000000000000000000000000000000'
-      : '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a') as `0x${string}`
-
-    const amountIn = parseUnits(swapAmount, 6)
+    if (swapFromBal && swapParsed > swapFromBal) return toast.error('Exceeds balance')
 
     writeContract(
       {
-        address: tokenInAddr,
+        address: swapTokenAddr,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [SWAP_POOL, amountIn],
+        args: [SWAP_POOL, swapParsed],
       },
       {
         onSuccess: () => {
           toast.success('Approve submitted')
-          setTimeout(() => {
-            writeContract(
-              {
-                address: SWAP_POOL,
-                abi: swapAbi,
-                functionName: 'swap',
-                args: [tokenInAddr, amountIn, 0n],
-              },
-              {
-                onSuccess: () => {
-                  toast.success('Swap submitted')
-                  refreshAll()
-                  setSwapAmount('')
-                },
-                onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Swap failed'),
-              }
-            )
-          }, 2500)
+          setTimeout(() => refetchSwapAllowance(), 1500)
         },
         onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Approve failed'),
+      }
+    )
+  }
+
+  const runSwap = () => {
+    if (!isConnected || !address) return toast.error('Connect wallet first')
+    if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
+    if (!swapAmount || Number(swapAmount) <= 0) return toast.error('Enter amount')
+    if (!isSwapApproved) return toast.error('Approve first')
+    if (swapFromBal && swapParsed > swapFromBal) return toast.error('Exceeds balance')
+
+    // Slippage protection 0.5%
+    const estimatedOut = Number(swapQuote || 0)
+    const minOut =
+      estimatedOut > 0 ? parseUnits((estimatedOut * 0.995).toFixed(6), 6) : 0n
+
+    writeContract(
+      {
+        address: SWAP_POOL,
+        abi: swapAbi,
+        functionName: 'swap',
+        args: [swapTokenAddr, swapParsed, minOut],
+      },
+      {
+        onSuccess: () => {
+          toast.success('Swap submitted')
+          refreshAll()
+          setSwapAmount('')
+        },
+        onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Swap failed'),
       }
     )
   }
@@ -674,7 +691,7 @@ export default function App() {
             {tab === 'swap' && (
               <div className="space-y-4">
                 <div className="text-sm text-zinc-400 flex items-center gap-2">
-                  <ArrowLeftRight size={16} /> SimpleStableSwap · USDC ↔ EURC
+                  <ArrowLeftRight size={16} /> SimpleStableSwap · USDC ↔ EURC · Slippage 0.5%
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
@@ -763,9 +780,25 @@ export default function App() {
                   </div>
                 </div>
 
+                {!isSwapApproved && !!swapAmount && (
+                  <button
+                    onClick={approveSwap}
+                    disabled={isPending || isConfirming || !isConnected || isWrongNetwork}
+                    className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-40"
+                  >
+                    {isPending || isConfirming ? 'Confirming...' : `1. Approve ${swapFrom}`}
+                  </button>
+                )}
+
+                {isSwapApproved && !!swapAmount && (
+                  <div className="text-center text-sm text-emerald-400 flex items-center justify-center gap-2">
+                    <CheckCircle2 size={16} /> Approved — ready to swap
+                  </div>
+                )}
+
                 <button
                   onClick={runSwap}
-                  disabled={isPending || isConfirming || !swapAmount || !isConnected || isWrongNetwork}
+                  disabled={!isSwapApproved || isPending || isConfirming || !swapAmount || !isConnected || isWrongNetwork}
                   className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold disabled:opacity-40"
                 >
                   {isPending || isConfirming ? 'Confirming...' : `Swap ${swapFrom} → ${swapTo}`}
