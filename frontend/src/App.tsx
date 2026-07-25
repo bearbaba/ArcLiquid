@@ -7,7 +7,7 @@ import {
   useChainId,
   useSwitchChain,
 } from 'wagmi'
-import { parseUnits, formatUnits } from 'viem'
+import { parseUnits, formatUnits, maxUint256 } from 'viem'
 import { toast } from 'sonner'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import {
@@ -21,18 +21,19 @@ import {
   CheckCircle2,
   Shield,
   Link2,
-  Fuel,
   ArrowLeftRight,
+  Plus,
+  Minus,
 } from 'lucide-react'
 import { getSwapQuote, ensureArcRpc, SWAP_POOL, swapAbi } from './lib/circleKit'
 
 const ARC_CHAIN_ID = 5042002
 const WAD = 10n ** 18n
-const CCTP_DOMAIN = 26
 
 type AssetId = 'USDC' | 'EURC' | 'CIRBTC' | 'USYC'
-type MainTab = 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'bridge'
+type MainTab = 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'liquidity'
 type SwapToken = 'USDC' | 'EURC'
+type LiquidityMode = 'add' | 'remove'
 
 const ASSETS: Record<
   AssetId,
@@ -116,6 +117,15 @@ function formatApy(rate: bigint) {
   return (Number(rate) / 1e16).toFixed(2) + '%'
 }
 
+function formatUtil(util: bigint) {
+  return (Number(util) / 1e16).toFixed(2) + '%'
+}
+
+function formatSharePct(bps?: bigint) {
+  if (!bps) return '0.00%'
+  return (Number(bps) / 100).toFixed(2) + '%'
+}
+
 function rpcHint(msg: string) {
   if (/rate limit/i.test(msg)) {
     return 'RPC rate limited. Set MetaMask Arc RPC to https://5042002.rpc.thirdweb.com, wait 30s, retry once.'
@@ -135,8 +145,11 @@ export default function App() {
   const [swapTo, setSwapTo] = useState<SwapToken>('EURC')
   const [swapAmount, setSwapAmount] = useState('')
   const [swapQuote, setSwapQuote] = useState('0')
-  const [bridgeAmount, setBridgeAmount] = useState('')
   const [screening, setScreening] = useState(false)
+  const [liqMode, setLiqMode] = useState<LiquidityMode>('add')
+  const [liqAmount0, setLiqAmount0] = useState('')
+  const [liqAmount1, setLiqAmount1] = useState('')
+  const [removeShares, setRemoveShares] = useState('')
 
   const asset = ASSETS[assetId]
   const poolLive = !!asset.pool
@@ -181,27 +194,27 @@ export default function App() {
     abi: poolAbi,
     functionName: 'utilizationRate',
   })
-  const { data: baseRate } = useReadContract({
+  const { data: baseRateOnchain } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
     functionName: 'baseRatePerYear',
   })
-  const { data: slope1 } = useReadContract({
+  const { data: slope1Onchain } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
     functionName: 'slope1PerYear',
   })
-  const { data: slope2 } = useReadContract({
+  const { data: slope2Onchain } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
     functionName: 'slope2PerYear',
   })
-  const { data: optimalUtil } = useReadContract({
+  const { data: optimalUtilOnchain } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
     functionName: 'optimalUtilization',
   })
-  const { data: reserveFactor } = useReadContract({
+  const { data: reserveFactorOnchain } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
     functionName: 'reserveFactor',
@@ -263,6 +276,19 @@ export default function App() {
     args: address ? [address, SWAP_POOL] : undefined,
   })
 
+  const { data: usdcLiqAllowance, refetch: refetchUsdcLiqAllowance } = useReadContract({
+    address: ASSETS.USDC.address,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address ? [address, SWAP_POOL] : undefined,
+  })
+  const { data: eurcLiqAllowance, refetch: refetchEurcLiqAllowance } = useReadContract({
+    address: ASSETS.EURC.address,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address ? [address, SWAP_POOL] : undefined,
+  })
+
   const { data: userSupply, refetch: refetchUserSupply } = useReadContract({
     address: poolLive ? poolAddr : undefined,
     abi: poolAbi,
@@ -294,21 +320,52 @@ export default function App() {
     args: address ? [address] : undefined,
   })
 
+  const { data: reserve0Data, refetch: refetchReserve0 } = useReadContract({
+    address: SWAP_POOL,
+    abi: swapAbi,
+    functionName: 'reserve0',
+  })
+  const { data: reserve1Data, refetch: refetchReserve1 } = useReadContract({
+    address: SWAP_POOL,
+    abi: swapAbi,
+    functionName: 'reserve1',
+  })
+  const { data: userShares, refetch: refetchUserShares } = useReadContract({
+    address: SWAP_POOL,
+    abi: swapAbi,
+    functionName: 'getUserShares',
+    args: address ? [address] : undefined,
+  })
+  const { data: sharePct, refetch: refetchSharePct } = useReadContract({
+    address: SWAP_POOL,
+    abi: swapAbi,
+    functionName: 'getSharePercentage',
+    args: address ? [address] : undefined,
+  })
+  const { data: totalShares, refetch: refetchTotalShares } = useReadContract({
+    address: SWAP_POOL,
+    abi: swapAbi,
+    functionName: 'totalShares',
+  })
+
+  const reserve0 = reserve0Data ?? 0n
+  const reserve1 = reserve1Data ?? 0n
+
   const { borrowApy, supplyApy } = useMemo(() => {
-    if (baseRate === undefined || slope1 === undefined || slope2 === undefined || optimalUtil === undefined) {
+    if (baseRateOnchain === undefined || slope1Onchain === undefined || slope2Onchain === undefined || optimalUtilOnchain === undefined) {
       return { borrowApy: 0n, supplyApy: 0n }
     }
     const utilization = util ?? 0n
-    let borrowRate = baseRate
-    if (utilization <= optimalUtil) {
-      borrowRate = baseRate + (slope1 * utilization) / WAD
+    let borrowRate = baseRateOnchain
+    if (utilization <= optimalUtilOnchain) {
+      borrowRate = baseRateOnchain + (slope1Onchain * utilization) / WAD
     } else {
-      borrowRate = baseRate + slope1 + (slope2 * (utilization - optimalUtil)) / WAD
+      borrowRate = baseRateOnchain + slope1Onchain + (slope2Onchain * (utilization - optimalUtilOnchain)) / WAD
     }
-    const rf = reserveFactor ?? 0n
+    const rf = reserveFactorOnchain ?? 0n
     const supplyRate = (borrowRate * utilization * (WAD - rf)) / (WAD * WAD)
     return { borrowApy: borrowRate, supplyApy: supplyRate }
-  }, [baseRate, slope1, slope2, optimalUtil, util, reserveFactor])
+  }, [baseRateOnchain, slope1Onchain, slope2Onchain, optimalUtilOnchain, util, reserveFactorOnchain])
 
   const refreshAll = () => {
     refetchBal()
@@ -318,6 +375,8 @@ export default function App() {
     refetchUsyc()
     refetchAllowance()
     refetchSwapAllowance()
+    refetchUsdcLiqAllowance()
+    refetchEurcLiqAllowance()
     refetchTotalSupply()
     refetchTotalDebt()
     refetchUtil()
@@ -327,6 +386,11 @@ export default function App() {
     refetchMaxBorrow()
     refetchCompliant()
     refetchBlocked()
+    refetchReserve0()
+    refetchReserve1()
+    refetchUserShares()
+    refetchSharePct()
+    refetchTotalShares()
   }
 
   useEffect(() => {
@@ -336,6 +400,10 @@ export default function App() {
       setTimeout(() => refreshAll(), 1500)
       setTimeout(() => reset(), 3000)
       setAmount('')
+      setSwapAmount('')
+      setLiqAmount0('')
+      setLiqAmount1('')
+      setRemoveShares('')
     }
     if (isError) toast.error('Transaction failed')
   }, [isSuccess, isError])
@@ -345,8 +413,14 @@ export default function App() {
   const swapParsed = swapAmount ? parseUnits(swapAmount, 6) : 0n
   const isSwapApproved = !!(swapAllowance && swapAmount && swapAllowance >= swapParsed)
   const swapFromBal = swapFrom === 'USDC' ? usdcBal : eurcBal
+  const exceedsSwapBalance = !!(swapFromBal !== undefined && swapParsed > swapFromBal)
   const utilNumber = util ? Number(util) / 1e18 : 0
   const isLendTab = tab === 'supply' || tab === 'withdraw' || tab === 'borrow' || tab === 'repay'
+
+  const liqParsed0 = liqAmount0 ? parseUnits(liqAmount0, 6) : 0n
+  const liqParsed1 = liqAmount1 ? parseUnits(liqAmount1, 6) : 0n
+  const isUsdcLiqApproved = !!(usdcLiqAllowance && liqParsed0 > 0n && usdcLiqAllowance >= liqParsed0)
+  const isEurcLiqApproved = !!(eurcLiqAllowance && liqParsed1 > 0n && eurcLiqAllowance >= liqParsed1)
 
   const balanceChips: { id: AssetId; bal?: bigint }[] = [
     { id: 'USDC', bal: usdcBal },
@@ -386,7 +460,12 @@ export default function App() {
     if (!amount) return toast.error('Enter an amount')
     if (!tokenBal || parsedAmount > tokenBal) return toast.error('Amount exceeds balance')
     writeContract(
-      { address: asset.address, abi: erc20Abi, functionName: 'approve', args: [poolAddr, parsedAmount] },
+      {
+        address: asset.address,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [poolAddr, maxUint256],
+      },
       {
         onSuccess: () => toast.success('Approve submitted'),
         onError: (e: any) => toast.error(rpcHint(e?.shortMessage || e?.message || 'Failed')),
@@ -409,7 +488,7 @@ export default function App() {
       if (!isApproved) return toast.error('Approve first')
       if (userDebt && parsedAmount > userDebt) return toast.error('Exceeds debt')
     }
-    if (tab === 'swap' || tab === 'bridge') return
+    if (tab === 'swap' || tab === 'liquidity') return
 
     const calls = {
       supply: { functionName: 'supply' as const, args: [parsedAmount] as const },
@@ -428,14 +507,14 @@ export default function App() {
 
   const approveSwap = () => {
     if (!swapAmount || Number(swapAmount) <= 0) return toast.error('Enter amount')
-    if (swapFromBal && swapParsed > swapFromBal) return toast.error('Exceeds balance')
+    if (exceedsSwapBalance) return toast.error('Exceeds balance')
 
     writeContract(
       {
         address: swapTokenAddr,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [SWAP_POOL, swapParsed],
+        args: [SWAP_POOL, maxUint256],
       },
       {
         onSuccess: () => {
@@ -452,12 +531,10 @@ export default function App() {
     if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
     if (!swapAmount || Number(swapAmount) <= 0) return toast.error('Enter amount')
     if (!isSwapApproved) return toast.error('Approve first')
-    if (swapFromBal && swapParsed > swapFromBal) return toast.error('Exceeds balance')
+    if (exceedsSwapBalance) return toast.error('Exceeds balance')
 
-    // Slippage protection 0.5%
     const estimatedOut = Number(swapQuote || 0)
-    const minOut =
-      estimatedOut > 0 ? parseUnits((estimatedOut * 0.995).toFixed(6), 6) : 0n
+    const minOut = estimatedOut > 0 ? parseUnits((estimatedOut * 0.995).toFixed(6), 6) : 0n
 
     writeContract(
       {
@@ -473,6 +550,72 @@ export default function App() {
           setSwapAmount('')
         },
         onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Swap failed'),
+      }
+    )
+  }
+
+  const approveLiqToken = (token: 'USDC' | 'EURC') => {
+    const tokenAddr = token === 'USDC' ? ASSETS.USDC.address : ASSETS.EURC.address
+    writeContract(
+      {
+        address: tokenAddr,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [SWAP_POOL, maxUint256],
+      },
+      {
+        onSuccess: () => {
+          toast.success(`${token} approved`)
+          setTimeout(() => {
+            refetchUsdcLiqAllowance()
+            refetchEurcLiqAllowance()
+          }, 1500)
+        },
+        onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Approve failed'),
+      }
+    )
+  }
+
+  const addLiquidity = () => {
+    if (!isConnected) return toast.error('Connect wallet first')
+    if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
+    if (!liqAmount0 || !liqAmount1) return toast.error('Enter both amounts')
+    if (!isUsdcLiqApproved) return toast.error('Approve USDC first')
+    if (!isEurcLiqApproved) return toast.error('Approve EURC first')
+    if (usdcBal && liqParsed0 > usdcBal) return toast.error('USDC exceeds balance')
+    if (eurcBal && liqParsed1 > eurcBal) return toast.error('EURC exceeds balance')
+
+    writeContract(
+      {
+        address: SWAP_POOL,
+        abi: swapAbi,
+        functionName: 'addLiquidity',
+        args: [liqParsed0, liqParsed1],
+      },
+      {
+        onSuccess: () => toast.success('Add liquidity submitted'),
+        onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Add liquidity failed'),
+      }
+    )
+  }
+
+  const removeLiquidity = () => {
+    if (!isConnected) return toast.error('Connect wallet first')
+    if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
+    if (!removeShares || Number(removeShares) <= 0) return toast.error('Enter shares to remove')
+    const sharesBn = BigInt(removeShares)
+    if (userShares && sharesBn > userShares) return toast.error('Exceeds your shares')
+
+    writeContract(
+      {
+        address: SWAP_POOL,
+        abi: swapAbi,
+        functionName: 'removeLiquidity',
+        args: [sharesBn],
+      },
+      {
+        onSuccess: () => toast.success('Remove liquidity submitted'),
+        onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Remove liquidity failed'),
       }
     )
   }
@@ -504,7 +647,7 @@ export default function App() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center font-bold text-black">F</div>
             <div>
               <div className="font-semibold text-lg leading-none">Flowlend</div>
-              <div className="text-[11px] text-zinc-500">Lend · Swap on Arc Testnet</div>
+              <div className="text-[11px] text-zinc-500">Lend · Swap · Liquidity on Arc</div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -540,7 +683,7 @@ export default function App() {
 
         {!poolLive && isLendTab && (
           <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm text-amber-200">
-            <strong>{asset.symbol}</strong> lending pool not deployed. Use <strong>Swap</strong> for USDC ↔ EURC.
+            <strong>{asset.symbol}</strong> lending pool not deployed. Use <strong>Swap</strong> or <strong>Liquidity</strong>.
           </div>
         )}
 
@@ -548,7 +691,7 @@ export default function App() {
           {[
             { label: 'Total Supplied', value: poolLive ? formatAmt(totalSupply, asset.decimals) : '—', sub: asset.symbol, icon: <TrendingUp size={16} className="text-emerald-400" /> },
             { label: 'Total Borrowed', value: poolLive ? formatAmt(totalDebt, asset.decimals) : '—', sub: asset.symbol, icon: <TrendingDown size={16} className="text-orange-400" /> },
-            { label: 'Utilization', value: poolLive ? formatApy(util ?? 0n) : '—', icon: <Activity size={16} className={getUtilColor()} />, color: getUtilColor() },
+            { label: 'Utilization', value: poolLive ? formatUtil(util ?? 0n) : '—', icon: <Activity size={16} className={getUtilColor()} />, color: getUtilColor() },
             { label: 'Supply / Borrow APY', value: poolLive ? `${formatApy(supplyApy)} / ${formatApy(borrowApy)}` : '—', icon: <Percent size={16} className="text-cyan-400" /> },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
@@ -670,14 +813,13 @@ export default function App() {
               <p>USDC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${ASSETS.USDC.pool}`} target="_blank" rel="noreferrer">{ASSETS.USDC.pool!.slice(0, 10)}...</a></p>
               <p>EURC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${ASSETS.EURC.pool}`} target="_blank" rel="noreferrer">{ASSETS.EURC.pool!.slice(0, 10)}...</a></p>
               <p>cirBTC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${ASSETS.CIRBTC.pool}`} target="_blank" rel="noreferrer">{ASSETS.CIRBTC.pool!.slice(0, 10)}...</a></p>
-              <p>Swap: SimpleStableSwap</p>
-              <div className="flex items-center gap-2"><Fuel size={12} /> CCTP domain {CCTP_DOMAIN}</div>
+              <p>Swap: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${SWAP_POOL}`} target="_blank" rel="noreferrer">{SWAP_POOL.slice(0, 10)}...</a></p>
             </div>
           </div>
 
           <div className="lg:col-span-3 rounded-2xl border border-white/5 bg-white/[0.03] p-6">
             <div className="flex p-1 bg-black/40 rounded-xl mb-6 overflow-x-auto">
-              {(['supply', 'withdraw', 'borrow', 'repay', 'swap', 'bridge'] as MainTab[]).map((t) => (
+              {(['supply', 'withdraw', 'borrow', 'repay', 'swap', 'liquidity'] as MainTab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => { setTab(t); setAmount('') }}
@@ -691,7 +833,7 @@ export default function App() {
             {tab === 'swap' && (
               <div className="space-y-4">
                 <div className="text-sm text-zinc-400 flex items-center gap-2">
-                  <ArrowLeftRight size={16} /> SimpleStableSwap · USDC ↔ EURC · Slippage 0.5%
+                  <ArrowLeftRight size={16} /> USDC ↔ EURC · Fee 0.04% · Slippage 0.5%
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
@@ -780,7 +922,13 @@ export default function App() {
                   </div>
                 </div>
 
-                {!isSwapApproved && !!swapAmount && (
+                {exceedsSwapBalance && (
+                  <div className="text-center text-sm text-red-400">
+                    Amount exceeds balance ({formatAmt(swapFromBal)} {swapFrom})
+                  </div>
+                )}
+
+                {!isSwapApproved && !!swapAmount && !exceedsSwapBalance && (
                   <button
                     onClick={approveSwap}
                     disabled={isPending || isConfirming || !isConnected || isWrongNetwork}
@@ -790,7 +938,7 @@ export default function App() {
                   </button>
                 )}
 
-                {isSwapApproved && !!swapAmount && (
+                {isSwapApproved && !!swapAmount && !exceedsSwapBalance && (
                   <div className="text-center text-sm text-emerald-400 flex items-center justify-center gap-2">
                     <CheckCircle2 size={16} /> Approved — ready to swap
                   </div>
@@ -798,7 +946,15 @@ export default function App() {
 
                 <button
                   onClick={runSwap}
-                  disabled={!isSwapApproved || isPending || isConfirming || !swapAmount || !isConnected || isWrongNetwork}
+                  disabled={
+                    !isSwapApproved ||
+                    isPending ||
+                    isConfirming ||
+                    !swapAmount ||
+                    !isConnected ||
+                    isWrongNetwork ||
+                    exceedsSwapBalance
+                  }
                   className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold disabled:opacity-40"
                 >
                   {isPending || isConfirming ? 'Confirming...' : `Swap ${swapFrom} → ${swapTo}`}
@@ -806,20 +962,167 @@ export default function App() {
               </div>
             )}
 
-            {tab === 'bridge' && (
-              <div className="space-y-4">
-                <div className="text-sm text-zinc-400">Bridge — coming soon</div>
-                {isConnected && (
-                  <div className="text-xs text-zinc-500 flex justify-between">
-                    <span>USDC balance</span>
-                    <span className="text-white font-medium">{formatAmt(usdcBal)} USDC</span>
+            {tab === 'liquidity' && (
+              <div className="space-y-5">
+                <div className="flex p-1 bg-black/40 rounded-xl">
+                  <button
+                    onClick={() => setLiqMode('add')}
+                    className={`flex-1 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 ${liqMode === 'add' ? 'bg-white text-black' : 'text-zinc-400'}`}
+                  >
+                    <Plus size={16} /> Add Liquidity
+                  </button>
+                  <button
+                    onClick={() => setLiqMode('remove')}
+                    className={`flex-1 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 ${liqMode === 'remove' ? 'bg-white text-black' : 'text-zinc-400'}`}
+                  >
+                    <Minus size={16} /> Remove Liquidity
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2 text-sm">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Pool Reserves</span>
+                    <span className="text-white">{formatAmt(reserve0)} USDC · {formatAmt(reserve1)} EURC</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Your Share</span>
+                    <span className="text-emerald-400 font-medium">{formatSharePct(sharePct)}</span>
+                  </div>
+                </div>
+
+                {liqMode === 'add' && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
+                      <div className="flex justify-between text-xs text-zinc-500">
+                        <span>USDC</span>
+                        {isConnected && (
+                          <button type="button" className="text-zinc-400 hover:text-white" onClick={() => usdcBal && setLiqAmount0(formatUnits(usdcBal, 6))}>
+                            Balance: {formatAmt(usdcBal)}
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        value={liqAmount0}
+                        onChange={(e) => setLiqAmount0(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-transparent text-2xl font-semibold outline-none"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
+                      <div className="flex justify-between text-xs text-zinc-500">
+                        <span>EURC</span>
+                        {isConnected && (
+                          <button type="button" className="text-zinc-400 hover:text-white" onClick={() => eurcBal && setLiqAmount1(formatUnits(eurcBal, 6))}>
+                            Balance: {formatAmt(eurcBal)}
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        value={liqAmount1}
+                        onChange={(e) => setLiqAmount1(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-transparent text-2xl font-semibold outline-none"
+                      />
+                    </div>
+
+                    {!isUsdcLiqApproved && !!liqAmount0 && (
+                      <button
+                        onClick={() => approveLiqToken('USDC')}
+                        disabled={isPending || isConfirming}
+                        className="w-full py-3 rounded-xl bg-blue-600 text-white font-medium disabled:opacity-40"
+                      >
+                        Approve USDC
+                      </button>
+                    )}
+                    {!isEurcLiqApproved && !!liqAmount1 && (
+                      <button
+                        onClick={() => approveLiqToken('EURC')}
+                        disabled={isPending || isConfirming}
+                        className="w-full py-3 rounded-xl bg-blue-600 text-white font-medium disabled:opacity-40"
+                      >
+                        Approve EURC
+                      </button>
+                    )}
+
+                    <button
+                      onClick={addLiquidity}
+                      disabled={!isUsdcLiqApproved || !isEurcLiqApproved || isPending || isConfirming || !liqAmount0 || !liqAmount1 || !isConnected || isWrongNetwork}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold disabled:opacity-40"
+                    >
+                      {isPending || isConfirming ? 'Confirming...' : 'Add Liquidity'}
+                    </button>
                   </div>
                 )}
-                <div className="flex gap-3">
-                  <input type="number" value={bridgeAmount} onChange={(e) => setBridgeAmount(e.target.value)} placeholder="0.00" className="flex-1 bg-black/50 border border-white/10 rounded-xl px-5 py-4 text-3xl font-semibold outline-none" />
-                  <div className="shrink-0 flex items-center px-5 rounded-xl bg-white/5 border border-white/10 text-sm font-bold">USDC</div>
-                </div>
-                <button disabled className="w-full py-4 rounded-xl bg-white/10 text-zinc-400 font-semibold cursor-not-allowed">Coming soon</button>
+
+                {liqMode === 'remove' && (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2 text-sm">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Estimated to receive</span>
+                        <span className="text-white font-medium">
+                          {formatAmt(
+                            userShares && totalShares && totalShares > 0n && removeShares
+                              ? (BigInt(removeShares || '0') * reserve0) / totalShares
+                              : 0n
+                          )}{' '}
+                          USDC +{' '}
+                          {formatAmt(
+                            userShares && totalShares && totalShares > 0n && removeShares
+                              ? (BigInt(removeShares || '0') * reserve1) / totalShares
+                              : 0n
+                          )}{' '}
+                          EURC
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {[25, 50, 75, 100].map((pct) => (
+                        <button
+                          key={pct}
+                          onClick={() => {
+                            if (!userShares) return
+                            const shares = (userShares * BigInt(pct)) / 100n
+                            setRemoveShares(shares.toString())
+                          }}
+                          className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10"
+                        >
+                          {pct === 100 ? 'MAX' : `${pct}%`}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                      <div className="text-xs text-zinc-500 mb-2">Shares to remove</div>
+                      <input
+                        type="number"
+                        value={removeShares}
+                        onChange={(e) => setRemoveShares(e.target.value)}
+                        placeholder="0"
+                        className="w-full bg-transparent text-2xl font-semibold outline-none"
+                      />
+                    </div>
+
+                    <button
+                      onClick={removeLiquidity}
+                      disabled={
+                        isPending ||
+                        isConfirming ||
+                        !removeShares ||
+                        !isConnected ||
+                        isWrongNetwork ||
+                        !userShares ||
+                        userShares === 0n
+                      }
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold disabled:opacity-40"
+                    >
+                      {isPending || isConfirming ? 'Confirming...' : 'Remove Liquidity'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -915,7 +1218,7 @@ export default function App() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/5 text-center text-xs text-zinc-600 space-y-2">
-          <div>Flowlend · Arc Testnet · SimpleStableSwap</div>
+          <div>Flowlend · Arc Testnet · USDC · EURC · cirBTC</div>
         </div>
       </main>
     </div>
