@@ -25,10 +25,12 @@ import {
   Plus,
   Minus,
 } from 'lucide-react'
-import { getSwapQuote, ensureArcRpc, SWAP_POOLS, swapAbi } from './lib/circleKit'
+import { ensureArcRpc, SWAP_POOLS, swapAbi } from './lib/circleKit'
 
 const ARC_CHAIN_ID = 5042002
 const WAD = 10n ** 18n
+const FEE_BPS = 4n
+const BPS = 10_000n
 
 type AssetId = 'USDC' | 'EURC' | 'CIRBTC' | 'USYC'
 type MainTab = 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'liquidity'
@@ -112,7 +114,7 @@ function formatAmt(v?: bigint, decimals = 6) {
     if (n < 0.0001) return n.toFixed(8)
     return n.toFixed(6)
   }
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 }
 
 function formatHealth(v?: bigint) {
@@ -148,6 +150,14 @@ function findPair(tokenA: SwapToken, tokenB: SwapToken): SwapPair | null {
   return null
 }
 
+function getAmountOut(amountIn: bigint, reserveIn: bigint, reserveOut: bigint): bigint {
+  if (amountIn === 0n || reserveIn === 0n || reserveOut === 0n) return 0n
+  const amountInWithFee = amountIn * (BPS - FEE_BPS)
+  const numerator = amountInWithFee * reserveOut
+  const denominator = reserveIn * BPS + amountInWithFee
+  return numerator / denominator
+}
+
 export default function App() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
@@ -160,7 +170,6 @@ export default function App() {
   const [swapFrom, setSwapFrom] = useState<SwapToken>('USDC')
   const [swapTo, setSwapTo] = useState<SwapToken>('EURC')
   const [swapAmount, setSwapAmount] = useState('')
-  const [swapQuote, setSwapQuote] = useState('0')
   const [screening, setScreening] = useState(false)
   const [liqMode, setLiqMode] = useState<LiquidityMode>('add')
   const [liqAmount0, setLiqAmount0] = useState('')
@@ -197,19 +206,6 @@ export default function App() {
     setLiqAmount1('')
     setRemoveShares('')
   }, [swapPair])
-
-  useEffect(() => {
-    if (tab !== 'swap' || !swapAmount || Number(swapAmount) <= 0) {
-      setSwapQuote('0')
-      return
-    }
-    const t = setTimeout(() => {
-      getSwapQuote({ tokenIn: swapFrom, amountIn: swapAmount })
-        .then(setSwapQuote)
-        .catch(() => setSwapQuote('0'))
-    }, 400)
-    return () => clearTimeout(t)
-  }, [tab, swapFrom, swapAmount])
 
   const { data: totalSupply, refetch: refetchTotalSupply } = useReadContract({
     address: poolLive ? poolAddr : undefined,
@@ -393,6 +389,19 @@ export default function App() {
   const reserve0 = reserve0Data ?? 0n
   const reserve1 = reserve1Data ?? 0n
 
+  const swapParsed = swapAmount ? parseUnits(swapAmount, ASSETS[swapFrom].decimals) : 0n
+
+  const swapQuoteBn = useMemo(() => {
+    if (swapParsed === 0n || reserve0 === 0n || reserve1 === 0n) return 0n
+    const isToken0In = ASSETS[swapFrom].address.toLowerCase() === token0.address.toLowerCase()
+    if (isToken0In) {
+      return getAmountOut(swapParsed, reserve0, reserve1)
+    }
+    return getAmountOut(swapParsed, reserve1, reserve0)
+  }, [swapParsed, reserve0, reserve1, swapFrom, token0.address])
+
+  const swapQuote = swapQuoteBn > 0n ? formatUnits(swapQuoteBn, ASSETS[swapTo].decimals) : '0'
+
   const { borrowApy, supplyApy } = useMemo(() => {
     if (baseRateOnchain === undefined || slope1Onchain === undefined || slope2Onchain === undefined || optimalUtilOnchain === undefined) {
       return { borrowApy: 0n, supplyApy: 0n }
@@ -455,29 +464,11 @@ export default function App() {
   }
 
   const handleLiqAmount0Change = (value: string) => {
-    const cleaned = value.replace(',', '.')
-    setLiqAmount0(cleaned)
-    if (!cleaned || reserve0 === 0n || reserve1 === 0n) return
-    try {
-      const amt0 = parseUnits(cleaned, token0.decimals)
-      const amt1 = (amt0 * reserve1) / reserve0
-      setLiqAmount1(formatUnits(amt1, token1.decimals))
-    } catch {
-      // keep current
-    }
+    setLiqAmount0(value.replace(',', '.'))
   }
 
   const handleLiqAmount1Change = (value: string) => {
-    const cleaned = value.replace(',', '.')
-    setLiqAmount1(cleaned)
-    if (!cleaned || reserve0 === 0n || reserve1 === 0n) return
-    try {
-      const amt1 = parseUnits(cleaned, token1.decimals)
-      const amt0 = (amt1 * reserve0) / reserve1
-      setLiqAmount0(formatUnits(amt0, token0.decimals))
-    } catch {
-      // keep current
-    }
+    setLiqAmount1(value.replace(',', '.'))
   }
 
   const selectSwapFrom = (token: SwapToken) => {
@@ -530,8 +521,6 @@ export default function App() {
 
   const parsedAmount = amount ? parseUnits(amount, asset.decimals) : 0n
   const isApproved = !!(allowance && amount && allowance >= parsedAmount)
-  const swapDecimals = ASSETS[swapFrom].decimals
-  const swapParsed = swapAmount ? parseUnits(swapAmount, swapDecimals) : 0n
   const isSwapApproved = !!(swapAllowance && swapAmount && swapAllowance >= swapParsed)
   const swapFromBal = swapFrom === 'USDC' ? usdcBal : swapFrom === 'EURC' ? eurcBal : cirbtcBal
   const exceedsSwapBalance = !!(swapFromBal !== undefined && swapParsed > swapFromBal)
@@ -563,15 +552,16 @@ export default function App() {
     setAmount(formatUnits((base * BigInt(pct)) / 100n, asset.decimals))
   }
 
-  const setLiqPercent = (pct: number) => {
+  const setLiqPercent0 = (pct: number) => {
     if (!token0Bal) return
-    const amt0 = (token0Bal * BigInt(pct)) / 100n
-    const val0 = formatUnits(amt0, token0.decimals)
-    setLiqAmount0(val0)
-    if (reserve0 > 0n && reserve1 > 0n) {
-      const amt1 = (amt0 * reserve1) / reserve0
-      setLiqAmount1(formatUnits(amt1, token1.decimals))
-    }
+    const amt = (token0Bal * BigInt(pct)) / 100n
+    setLiqAmount0(formatUnits(amt, token0.decimals))
+  }
+
+  const setLiqPercent1 = (pct: number) => {
+    if (!token1Bal) return
+    const amt = (token1Bal * BigInt(pct)) / 100n
+    setLiqAmount1(formatUnits(amt, token1.decimals))
   }
 
   const screenWallet = async () => {
@@ -670,9 +660,9 @@ export default function App() {
     if (!swapAmount || Number(swapAmount) <= 0) return toast.error('Enter amount')
     if (!isSwapApproved) return toast.error('Approve first')
     if (exceedsSwapBalance) return toast.error('Exceeds balance')
+    if (swapQuoteBn === 0n) return toast.error('Insufficient liquidity')
 
-    const estimatedOut = Number(swapQuote || 0)
-    const minOut = estimatedOut > 0 ? parseUnits((estimatedOut * 0.995).toFixed(6), ASSETS[swapTo].decimals) : 0n
+    const minOut = (swapQuoteBn * 99n) / 100n
 
     writeContract(
       {
@@ -776,6 +766,15 @@ export default function App() {
   const getUtilColor = () => (utilNumber > 0.8 ? 'text-red-400' : utilNumber > 0.5 ? 'text-yellow-400' : 'text-emerald-400')
 
   const tokenOptions: SwapToken[] = ['USDC', 'EURC', 'CIRBTC']
+
+  const estimatedReceive0 =
+    userShares && totalShares && totalShares > 0n && removeShares
+      ? (BigInt(removeShares || '0') * reserve0) / totalShares
+      : 0n
+  const estimatedReceive1 =
+    userShares && totalShares && totalShares > 0n && removeShares
+      ? (BigInt(removeShares || '0') * reserve1) / totalShares
+      : 0n
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -989,7 +988,7 @@ export default function App() {
             {tab === 'swap' && (
               <div className="space-y-4">
                 <div className="text-sm text-zinc-400 flex items-center gap-2">
-                  <ArrowLeftRight size={16} /> {ASSETS[swapFrom].symbol} ↔ {ASSETS[swapTo].symbol} · Fee 0.04% · Slippage 0.5%
+                  <ArrowLeftRight size={16} /> {ASSETS[swapFrom].symbol} ↔ {ASSETS[swapTo].symbol} · Fee 0.04% · Slippage 1%
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3 relative">
@@ -1061,11 +1060,11 @@ export default function App() {
                 <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3 relative">
                   <div className="flex justify-between text-xs text-zinc-500">
                     <span>You receive (est.)</span>
-                    <span className="text-emerald-400">~ {swapQuote || '0.00'} {ASSETS[swapTo].symbol}</span>
+                    <span className="text-emerald-400">~ {Number(swapAmount) > 0 ? formatAmt(swapQuoteBn, ASSETS[swapTo].decimals) : '0.00'} {ASSETS[swapTo].symbol}</span>
                   </div>
                   <div className="flex gap-3 items-center">
                     <div className="flex-1 text-3xl font-semibold text-zinc-300 tabular-nums">
-                      {Number(swapAmount) > 0 ? swapQuote : '0.00'}
+                      {Number(swapAmount) > 0 ? formatAmt(swapQuoteBn, ASSETS[swapTo].decimals) : '0.00'}
                     </div>
                     <div className="relative">
                       <button
@@ -1127,7 +1126,8 @@ export default function App() {
                     !swapAmount ||
                     !isConnected ||
                     isWrongNetwork ||
-                    exceedsSwapBalance
+                    exceedsSwapBalance ||
+                    swapQuoteBn === 0n
                   }
                   className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold disabled:opacity-40"
                 >
@@ -1166,22 +1166,21 @@ export default function App() {
 
                 {liqMode === 'add' && (
                   <div className="space-y-4">
-                    <div className="flex gap-2">
-                      {[25, 50, 75, 100].map((pct) => (
-                        <button
-                          key={pct}
-                          onClick={() => setLiqPercent(pct)}
-                          className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10"
-                        >
-                          {pct === 100 ? 'MAX' : `${pct}%`}
-                        </button>
-                      ))}
-                    </div>
-
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
                       <div className="flex justify-between text-xs text-zinc-500">
                         <span>{token0.symbol}</span>
                         {isConnected && <span>Balance: {formatAmt(token0Bal, token0.decimals)}</span>}
+                      </div>
+                      <div className="flex gap-2 mb-2">
+                        {[25, 50, 75, 100].map((pct) => (
+                          <button
+                            key={pct}
+                            onClick={() => setLiqPercent0(pct)}
+                            className="flex-1 py-1 text-xs rounded-lg bg-white/5 border border-white/10"
+                          >
+                            {pct === 100 ? 'MAX' : `${pct}%`}
+                          </button>
+                        ))}
                       </div>
                       <input
                         type="number"
@@ -1196,6 +1195,17 @@ export default function App() {
                       <div className="flex justify-between text-xs text-zinc-500">
                         <span>{token1.symbol}</span>
                         {isConnected && <span>Balance: {formatAmt(token1Bal, token1.decimals)}</span>}
+                      </div>
+                      <div className="flex gap-2 mb-2">
+                        {[25, 50, 75, 100].map((pct) => (
+                          <button
+                            key={pct}
+                            onClick={() => setLiqPercent1(pct)}
+                            className="flex-1 py-1 text-xs rounded-lg bg-white/5 border border-white/10"
+                          >
+                            {pct === 100 ? 'MAX' : `${pct}%`}
+                          </button>
+                        ))}
                       </div>
                       <input
                         type="number"
@@ -1257,6 +1267,15 @@ export default function App() {
                       ))}
                     </div>
 
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm space-y-1">
+                      <div className="text-zinc-400">You will receive</div>
+                      <div className="text-white font-medium">
+                        {formatAmt(estimatedReceive0, token0.decimals)} {token0.symbol}
+                        {' + '}
+                        {formatAmt(estimatedReceive1, token1.decimals)} {token1.symbol}
+                      </div>
+                    </div>
+
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                       <div className="text-xs text-zinc-500 mb-2">Shares to remove</div>
                       <input
@@ -1266,27 +1285,6 @@ export default function App() {
                         placeholder="0"
                         className="w-full bg-transparent text-2xl font-semibold outline-none"
                       />
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm space-y-1">
-                      <div className="text-zinc-400">You will receive</div>
-                      <div className="text-white font-medium">
-                        {formatAmt(
-                          userShares && totalShares && totalShares > 0n && removeShares
-                            ? (BigInt(removeShares || '0') * reserve0) / totalShares
-                            : 0n,
-                          token0.decimals
-                        )}{' '}
-                        {token0.symbol}
-                        {' + '}
-                        {formatAmt(
-                          userShares && totalShares && totalShares > 0n && removeShares
-                            ? (BigInt(removeShares || '0') * reserve1) / totalShares
-                            : 0n,
-                          token1.decimals
-                        )}{' '}
-                        {token1.symbol}
-                      </div>
                     </div>
 
                     <button
@@ -1324,8 +1322,7 @@ export default function App() {
                 )}
                 {tab === 'withdraw' && isConnected && poolLive && (
                   <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm text-emerald-300">
-                    You can withdraw up to <strong>{formatAmt(userSupply, asset.decimals)}</strong> {asset.symbol}
-                  </div>
+                    You can withdraw up to <strong>{formatAmt(userSupply, asset.decimals)}</strong> {asset.symbol}</div>
                 )}
                 {tab === 'repay' && isConnected && poolLive && (
                   <div className="mb-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-sm text-orange-300">
