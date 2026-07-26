@@ -25,15 +25,16 @@ import {
   Plus,
   Minus,
 } from 'lucide-react'
-import { getSwapQuote, ensureArcRpc, SWAP_POOL, swapAbi } from './lib/circleKit'
+import { getSwapQuote, ensureArcRpc, SWAP_POOLS, swapAbi } from './lib/circleKit'
 
 const ARC_CHAIN_ID = 5042002
 const WAD = 10n ** 18n
 
 type AssetId = 'USDC' | 'EURC' | 'CIRBTC' | 'USYC'
 type MainTab = 'supply' | 'withdraw' | 'borrow' | 'repay' | 'swap' | 'liquidity'
-type SwapToken = 'USDC' | 'EURC'
+type SwapPair = 'USDC-EURC' | 'USDC-CIRBTC' | 'EURC-CIRBTC'
 type LiquidityMode = 'add' | 'remove'
+type SwapToken = 'USDC' | 'EURC' | 'CIRBTC'
 
 const ASSETS: Record<
   AssetId,
@@ -67,6 +68,12 @@ const ASSETS: Record<
     decimals: 6,
     pool: null,
   },
+}
+
+const PAIR_CONFIG: Record<SwapPair, { token0: SwapToken; token1: SwapToken; pool: `0x${string}` }> = {
+  'USDC-EURC': { token0: 'USDC', token1: 'EURC', pool: SWAP_POOLS['USDC-EURC'] },
+  'USDC-CIRBTC': { token0: 'USDC', token1: 'CIRBTC', pool: SWAP_POOLS['USDC-CIRBTC'] },
+  'EURC-CIRBTC': { token0: 'EURC', token1: 'CIRBTC', pool: SWAP_POOLS['EURC-CIRBTC'] },
 }
 
 const poolAbi = [
@@ -133,6 +140,14 @@ function rpcHint(msg: string) {
   return msg
 }
 
+function findPair(tokenA: SwapToken, tokenB: SwapToken): SwapPair | null {
+  const key1 = `${tokenA}-${tokenB}` as SwapPair
+  const key2 = `${tokenB}-${tokenA}` as SwapPair
+  if (PAIR_CONFIG[key1]) return key1
+  if (PAIR_CONFIG[key2]) return key2
+  return null
+}
+
 export default function App() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
@@ -141,6 +156,7 @@ export default function App() {
   const [tab, setTab] = useState<MainTab>('supply')
   const [assetId, setAssetId] = useState<AssetId>('USDC')
   const [amount, setAmount] = useState('')
+  const [swapPair, setSwapPair] = useState<SwapPair>('USDC-EURC')
   const [swapFrom, setSwapFrom] = useState<SwapToken>('USDC')
   const [swapTo, setSwapTo] = useState<SwapToken>('EURC')
   const [swapAmount, setSwapAmount] = useState('')
@@ -150,11 +166,17 @@ export default function App() {
   const [liqAmount0, setLiqAmount0] = useState('')
   const [liqAmount1, setLiqAmount1] = useState('')
   const [removeShares, setRemoveShares] = useState('')
+  const [showFromSelector, setShowFromSelector] = useState(false)
+  const [showToSelector, setShowToSelector] = useState(false)
 
   const asset = ASSETS[assetId]
   const poolLive = !!asset.pool
   const poolAddr = (asset.pool || ASSETS.USDC.pool!) as `0x${string}`
-  const swapTokenAddr = (swapFrom === 'USDC' ? ASSETS.USDC.address : ASSETS.EURC.address) as `0x${string}`
+  const currentPair = PAIR_CONFIG[swapPair]
+  const currentSwapPool = currentPair.pool
+  const token0 = ASSETS[currentPair.token0]
+  const token1 = ASSETS[currentPair.token1]
+  const swapTokenAddr = ASSETS[swapFrom].address
 
   const { writeContract, data: hash, isPending, reset } = useWriteContract()
   const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({ hash })
@@ -165,6 +187,16 @@ export default function App() {
       switchChain?.({ chainId: ARC_CHAIN_ID })
     }
   }, [isConnected, chainId, switchChain])
+
+  useEffect(() => {
+    const pair = PAIR_CONFIG[swapPair]
+    setSwapFrom(pair.token0)
+    setSwapTo(pair.token1)
+    setSwapAmount('')
+    setLiqAmount0('')
+    setLiqAmount1('')
+    setRemoveShares('')
+  }, [swapPair])
 
   useEffect(() => {
     if (tab !== 'swap' || !swapAmount || Number(swapAmount) <= 0) {
@@ -273,20 +305,20 @@ export default function App() {
     address: swapTokenAddr,
     abi: erc20Abi,
     functionName: 'allowance',
-    args: address ? [address, SWAP_POOL] : undefined,
+    args: address ? [address, currentSwapPool] : undefined,
   })
 
-  const { data: usdcLiqAllowance, refetch: refetchUsdcLiqAllowance } = useReadContract({
-    address: ASSETS.USDC.address,
+  const { data: token0LiqAllowance, refetch: refetchToken0LiqAllowance } = useReadContract({
+    address: token0.address,
     abi: erc20Abi,
     functionName: 'allowance',
-    args: address ? [address, SWAP_POOL] : undefined,
+    args: address ? [address, currentSwapPool] : undefined,
   })
-  const { data: eurcLiqAllowance, refetch: refetchEurcLiqAllowance } = useReadContract({
-    address: ASSETS.EURC.address,
+  const { data: token1LiqAllowance, refetch: refetchToken1LiqAllowance } = useReadContract({
+    address: token1.address,
     abi: erc20Abi,
     functionName: 'allowance',
-    args: address ? [address, SWAP_POOL] : undefined,
+    args: address ? [address, currentSwapPool] : undefined,
   })
 
   const { data: userSupply, refetch: refetchUserSupply } = useReadContract({
@@ -321,29 +353,29 @@ export default function App() {
   })
 
   const { data: reserve0Data, refetch: refetchReserve0 } = useReadContract({
-    address: SWAP_POOL,
+    address: currentSwapPool,
     abi: swapAbi,
     functionName: 'reserve0',
   })
   const { data: reserve1Data, refetch: refetchReserve1 } = useReadContract({
-    address: SWAP_POOL,
+    address: currentSwapPool,
     abi: swapAbi,
     functionName: 'reserve1',
   })
   const { data: userShares, refetch: refetchUserShares } = useReadContract({
-    address: SWAP_POOL,
+    address: currentSwapPool,
     abi: swapAbi,
     functionName: 'getUserShares',
     args: address ? [address] : undefined,
   })
   const { data: sharePct, refetch: refetchSharePct } = useReadContract({
-    address: SWAP_POOL,
+    address: currentSwapPool,
     abi: swapAbi,
     functionName: 'getSharePercentage',
     args: address ? [address] : undefined,
   })
   const { data: totalShares, refetch: refetchTotalShares } = useReadContract({
-    address: SWAP_POOL,
+    address: currentSwapPool,
     abi: swapAbi,
     functionName: 'totalShares',
   })
@@ -385,8 +417,8 @@ export default function App() {
     refetchUsyc()
     refetchAllowance()
     refetchSwapAllowance()
-    refetchUsdcLiqAllowance()
-    refetchEurcLiqAllowance()
+    refetchToken0LiqAllowance()
+    refetchToken1LiqAllowance()
     refetchTotalSupply()
     refetchTotalDebt()
     refetchUtil()
@@ -419,23 +451,100 @@ export default function App() {
   }, [isSuccess, isError])
 
   const handleAmountChange = (value: string) => {
+    setAmount(value.replace(',', '.'))
+  }
+
+  const handleLiqAmount0Change = (value: string) => {
     const cleaned = value.replace(',', '.')
-    setAmount(cleaned)
+    setLiqAmount0(cleaned)
+    if (!cleaned || reserve0 === 0n || reserve1 === 0n) return
+    try {
+      const amt0 = parseUnits(cleaned, token0.decimals)
+      const amt1 = (amt0 * reserve1) / reserve0
+      setLiqAmount1(formatUnits(amt1, token1.decimals))
+    } catch {
+      // keep current
+    }
+  }
+
+  const handleLiqAmount1Change = (value: string) => {
+    const cleaned = value.replace(',', '.')
+    setLiqAmount1(cleaned)
+    if (!cleaned || reserve0 === 0n || reserve1 === 0n) return
+    try {
+      const amt1 = parseUnits(cleaned, token1.decimals)
+      const amt0 = (amt1 * reserve0) / reserve1
+      setLiqAmount0(formatUnits(amt0, token0.decimals))
+    } catch {
+      // keep current
+    }
+  }
+
+  const selectSwapFrom = (token: SwapToken) => {
+    if (token === swapTo) {
+      setSwapFrom(swapTo)
+      setSwapTo(swapFrom)
+    } else {
+      const pair = findPair(token, swapTo)
+      if (pair) {
+        setSwapPair(pair)
+        setSwapFrom(token)
+        setSwapTo(swapTo)
+      } else {
+        const fallback = token === 'USDC' ? 'EURC' : 'USDC'
+        const newPair = findPair(token, fallback)
+        if (newPair) {
+          setSwapPair(newPair)
+          setSwapFrom(token)
+          setSwapTo(fallback)
+        }
+      }
+    }
+    setSwapAmount('')
+    setShowFromSelector(false)
+  }
+
+  const selectSwapTo = (token: SwapToken) => {
+    if (token === swapFrom) {
+      setSwapFrom(swapTo)
+      setSwapTo(swapFrom)
+    } else {
+      const pair = findPair(swapFrom, token)
+      if (pair) {
+        setSwapPair(pair)
+        setSwapFrom(swapFrom)
+        setSwapTo(token)
+      } else {
+        const fallback = token === 'USDC' ? 'EURC' : 'USDC'
+        const newPair = findPair(fallback, token)
+        if (newPair) {
+          setSwapPair(newPair)
+          setSwapFrom(fallback)
+          setSwapTo(token)
+        }
+      }
+    }
+    setSwapAmount('')
+    setShowToSelector(false)
   }
 
   const parsedAmount = amount ? parseUnits(amount, asset.decimals) : 0n
   const isApproved = !!(allowance && amount && allowance >= parsedAmount)
-  const swapParsed = swapAmount ? parseUnits(swapAmount, 6) : 0n
+  const swapDecimals = ASSETS[swapFrom].decimals
+  const swapParsed = swapAmount ? parseUnits(swapAmount, swapDecimals) : 0n
   const isSwapApproved = !!(swapAllowance && swapAmount && swapAllowance >= swapParsed)
-  const swapFromBal = swapFrom === 'USDC' ? usdcBal : eurcBal
+  const swapFromBal = swapFrom === 'USDC' ? usdcBal : swapFrom === 'EURC' ? eurcBal : cirbtcBal
   const exceedsSwapBalance = !!(swapFromBal !== undefined && swapParsed > swapFromBal)
   const utilNumber = util ? Number(util) / 1e18 : 0
   const isLendTab = tab === 'supply' || tab === 'withdraw' || tab === 'borrow' || tab === 'repay'
 
-  const liqParsed0 = liqAmount0 ? parseUnits(liqAmount0, 6) : 0n
-  const liqParsed1 = liqAmount1 ? parseUnits(liqAmount1, 6) : 0n
-  const isUsdcLiqApproved = !!(usdcLiqAllowance && liqParsed0 > 0n && usdcLiqAllowance >= liqParsed0)
-  const isEurcLiqApproved = !!(eurcLiqAllowance && liqParsed1 > 0n && eurcLiqAllowance >= liqParsed1)
+  const liqParsed0 = liqAmount0 ? parseUnits(liqAmount0, token0.decimals) : 0n
+  const liqParsed1 = liqAmount1 ? parseUnits(liqAmount1, token1.decimals) : 0n
+  const isToken0LiqApproved = !!(token0LiqAllowance && liqParsed0 > 0n && token0LiqAllowance >= liqParsed0)
+  const isToken1LiqApproved = !!(token1LiqAllowance && liqParsed1 > 0n && token1LiqAllowance >= liqParsed1)
+
+  const token0Bal = currentPair.token0 === 'USDC' ? usdcBal : currentPair.token0 === 'EURC' ? eurcBal : cirbtcBal
+  const token1Bal = currentPair.token1 === 'USDC' ? usdcBal : currentPair.token1 === 'EURC' ? eurcBal : cirbtcBal
 
   const balanceChips: { id: AssetId; bal?: bigint }[] = [
     { id: 'USDC', bal: usdcBal },
@@ -452,6 +561,17 @@ export default function App() {
     if (tab === 'repay') base = userDebt
     if (!base) return
     setAmount(formatUnits((base * BigInt(pct)) / 100n, asset.decimals))
+  }
+
+  const setLiqPercent = (pct: number) => {
+    if (!token0Bal) return
+    const amt0 = (token0Bal * BigInt(pct)) / 100n
+    const val0 = formatUnits(amt0, token0.decimals)
+    setLiqAmount0(val0)
+    if (reserve0 > 0n && reserve1 > 0n) {
+      const amt1 = (amt0 * reserve1) / reserve0
+      setLiqAmount1(formatUnits(amt1, token1.decimals))
+    }
   }
 
   const screenWallet = async () => {
@@ -532,7 +652,7 @@ export default function App() {
         address: swapTokenAddr,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [SWAP_POOL, maxUint256],
+        args: [currentSwapPool, maxUint256],
       },
       {
         onSuccess: () => {
@@ -552,11 +672,11 @@ export default function App() {
     if (exceedsSwapBalance) return toast.error('Exceeds balance')
 
     const estimatedOut = Number(swapQuote || 0)
-    const minOut = estimatedOut > 0 ? parseUnits((estimatedOut * 0.995).toFixed(6), 6) : 0n
+    const minOut = estimatedOut > 0 ? parseUnits((estimatedOut * 0.995).toFixed(6), ASSETS[swapTo].decimals) : 0n
 
     writeContract(
       {
-        address: SWAP_POOL,
+        address: currentSwapPool,
         abi: swapAbi,
         functionName: 'swap',
         args: [swapTokenAddr, swapParsed, minOut],
@@ -572,21 +692,21 @@ export default function App() {
     )
   }
 
-  const approveLiqToken = (token: 'USDC' | 'EURC') => {
-    const tokenAddr = token === 'USDC' ? ASSETS.USDC.address : ASSETS.EURC.address
+  const approveLiqToken = (which: 0 | 1) => {
+    const token = which === 0 ? token0 : token1
     writeContract(
       {
-        address: tokenAddr,
+        address: token.address,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [SWAP_POOL, maxUint256],
+        args: [currentSwapPool, maxUint256],
       },
       {
         onSuccess: () => {
-          toast.success(`${token} approved`)
+          toast.success(`${token.symbol} approved`)
           setTimeout(() => {
-            refetchUsdcLiqAllowance()
-            refetchEurcLiqAllowance()
+            refetchToken0LiqAllowance()
+            refetchToken1LiqAllowance()
           }, 1500)
         },
         onError: (e: any) => toast.error(e?.shortMessage || e?.message || 'Approve failed'),
@@ -598,14 +718,12 @@ export default function App() {
     if (!isConnected) return toast.error('Connect wallet first')
     if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
     if (!liqAmount0 || !liqAmount1) return toast.error('Enter both amounts')
-    if (!isUsdcLiqApproved) return toast.error('Approve USDC first')
-    if (!isEurcLiqApproved) return toast.error('Approve EURC first')
-    if (usdcBal && liqParsed0 > usdcBal) return toast.error('USDC exceeds balance')
-    if (eurcBal && liqParsed1 > eurcBal) return toast.error('EURC exceeds balance')
+    if (!isToken0LiqApproved) return toast.error(`Approve ${token0.symbol} first`)
+    if (!isToken1LiqApproved) return toast.error(`Approve ${token1.symbol} first`)
 
     writeContract(
       {
-        address: SWAP_POOL,
+        address: currentSwapPool,
         abi: swapAbi,
         functionName: 'addLiquidity',
         args: [liqParsed0, liqParsed1],
@@ -621,15 +739,15 @@ export default function App() {
     if (!isConnected) return toast.error('Connect wallet first')
     if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
     if (!removeShares || Number(removeShares) <= 0) return toast.error('Enter shares to remove')
-    const sharesBn = BigInt(removeShares)
-    if (userShares && sharesBn > userShares) return toast.error('Exceeds your shares')
+    const shareAmount = BigInt(removeShares)
+    if (userShares && shareAmount > userShares) return toast.error('Exceeds your shares')
 
     writeContract(
       {
-        address: SWAP_POOL,
+        address: currentSwapPool,
         abi: swapAbi,
         functionName: 'removeLiquidity',
-        args: [sharesBn],
+        args: [shareAmount],
       },
       {
         onSuccess: () => toast.success('Remove liquidity submitted'),
@@ -656,6 +774,8 @@ export default function App() {
   const healthNum = healthValue === '∞' ? 999 : Number(healthValue)
   const getHealthColor = () => (healthNum >= 1.5 ? 'text-emerald-400' : healthNum >= 1.1 ? 'text-yellow-400' : 'text-red-400')
   const getUtilColor = () => (utilNumber > 0.8 ? 'text-red-400' : utilNumber > 0.5 ? 'text-yellow-400' : 'text-emerald-400')
+
+  const tokenOptions: SwapToken[] = ['USDC', 'EURC', 'CIRBTC']
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -831,7 +951,9 @@ export default function App() {
               <p>USDC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${ASSETS.USDC.pool}`} target="_blank" rel="noreferrer">{ASSETS.USDC.pool!.slice(0, 10)}...</a></p>
               <p>EURC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${ASSETS.EURC.pool}`} target="_blank" rel="noreferrer">{ASSETS.EURC.pool!.slice(0, 10)}...</a></p>
               <p>cirBTC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${ASSETS.CIRBTC.pool}`} target="_blank" rel="noreferrer">{ASSETS.CIRBTC.pool!.slice(0, 10)}...</a></p>
-              <p>Swap: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${SWAP_POOL}`} target="_blank" rel="noreferrer">{SWAP_POOL.slice(0, 10)}...</a></p>
+              <p>Swap USDC-EURC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${SWAP_POOLS['USDC-EURC']}`} target="_blank" rel="noreferrer">{SWAP_POOLS['USDC-EURC'].slice(0, 10)}...</a></p>
+              <p>Swap USDC-cirBTC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${SWAP_POOLS['USDC-CIRBTC']}`} target="_blank" rel="noreferrer">{SWAP_POOLS['USDC-CIRBTC'].slice(0, 10)}...</a></p>
+              <p>Swap EURC-cirBTC: <a className="underline text-zinc-400" href={`https://testnet.arcscan.app/address/${SWAP_POOLS['EURC-CIRBTC']}`} target="_blank" rel="noreferrer">{SWAP_POOLS['EURC-CIRBTC'].slice(0, 10)}...</a></p>
             </div>
           </div>
 
@@ -848,13 +970,29 @@ export default function App() {
               ))}
             </div>
 
+            {(tab === 'swap' || tab === 'liquidity') && (
+              <div className="mb-4 flex gap-2">
+                {(Object.keys(PAIR_CONFIG) as SwapPair[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setSwapPair(p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                      swapPair === p ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 text-zinc-400'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {tab === 'swap' && (
               <div className="space-y-4">
                 <div className="text-sm text-zinc-400 flex items-center gap-2">
-                  <ArrowLeftRight size={16} /> USDC ↔ EURC · Fee 0.04% · Slippage 0.5%
+                  <ArrowLeftRight size={16} /> {ASSETS[swapFrom].symbol} ↔ {ASSETS[swapTo].symbol} · Fee 0.04% · Slippage 0.5%
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3 relative">
                   <div className="flex justify-between text-xs text-zinc-500">
                     <span>You pay</span>
                     {isConnected && (
@@ -862,10 +1000,10 @@ export default function App() {
                         type="button"
                         className="text-zinc-400 hover:text-white"
                         onClick={() => {
-                          if (swapFromBal) setSwapAmount(formatUnits(swapFromBal, 6))
+                          if (swapFromBal) setSwapAmount(formatUnits(swapFromBal, ASSETS[swapFrom].decimals))
                         }}
                       >
-                        Balance: {formatAmt(swapFromBal)} {swapFrom}
+                        Balance: {formatAmt(swapFromBal, ASSETS[swapFrom].decimals)} {ASSETS[swapFrom].symbol}
                       </button>
                     )}
                   </div>
@@ -877,22 +1015,31 @@ export default function App() {
                       placeholder="0.00"
                       className="flex-1 min-w-0 bg-transparent text-3xl font-semibold outline-none"
                     />
-                    <div className="flex rounded-xl border border-white/10 overflow-hidden shrink-0">
-                      {(['USDC', 'EURC'] as SwapToken[]).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => {
-                            setSwapFrom(t)
-                            setSwapTo(t === 'USDC' ? 'EURC' : 'USDC')
-                          }}
-                          className={`px-4 py-2 text-sm font-semibold ${
-                            swapFrom === t ? 'bg-white text-black' : 'bg-transparent text-zinc-400'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFromSelector(!showFromSelector)
+                          setShowToSelector(false)
+                        }}
+                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold hover:border-white/30"
+                      >
+                        {ASSETS[swapFrom].symbol} ▾
+                      </button>
+                      {showFromSelector && (
+                        <div className="absolute right-0 top-12 z-20 w-32 rounded-xl border border-white/10 bg-[#12121a] shadow-xl overflow-hidden">
+                          {tokenOptions.map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => selectSwapFrom(t)}
+                              className={`w-full px-4 py-2.5 text-left text-sm hover:bg-white/10 ${swapFrom === t ? 'text-emerald-400' : 'text-white'}`}
+                            >
+                              {ASSETS[t].symbol}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -911,38 +1058,47 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3 relative">
                   <div className="flex justify-between text-xs text-zinc-500">
                     <span>You receive (est.)</span>
-                    <span className="text-emerald-400">~ {swapQuote || '0.00'} {swapTo}</span>
+                    <span className="text-emerald-400">~ {swapQuote || '0.00'} {ASSETS[swapTo].symbol}</span>
                   </div>
                   <div className="flex gap-3 items-center">
                     <div className="flex-1 text-3xl font-semibold text-zinc-300 tabular-nums">
                       {Number(swapAmount) > 0 ? swapQuote : '0.00'}
                     </div>
-                    <div className="flex rounded-xl border border-white/10 overflow-hidden shrink-0">
-                      {(['USDC', 'EURC'] as SwapToken[]).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => {
-                            setSwapTo(t)
-                            setSwapFrom(t === 'USDC' ? 'EURC' : 'USDC')
-                          }}
-                          className={`px-4 py-2 text-sm font-semibold ${
-                            swapTo === t ? 'bg-white text-black' : 'bg-transparent text-zinc-400'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToSelector(!showToSelector)
+                          setShowFromSelector(false)
+                        }}
+                        className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold hover:border-white/30"
+                      >
+                        {ASSETS[swapTo].symbol} ▾
+                      </button>
+                      {showToSelector && (
+                        <div className="absolute right-0 top-12 z-20 w-32 rounded-xl border border-white/10 bg-[#12121a] shadow-xl overflow-hidden">
+                          {tokenOptions.map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => selectSwapTo(t)}
+                              className={`w-full px-4 py-2.5 text-left text-sm hover:bg-white/10 ${swapTo === t ? 'text-emerald-400' : 'text-white'}`}
+                            >
+                              {ASSETS[t].symbol}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {exceedsSwapBalance && (
                   <div className="text-center text-sm text-red-400">
-                    Amount exceeds balance ({formatAmt(swapFromBal)} {swapFrom})
+                    Amount exceeds balance ({formatAmt(swapFromBal, ASSETS[swapFrom].decimals)} {ASSETS[swapFrom].symbol})
                   </div>
                 )}
 
@@ -952,7 +1108,7 @@ export default function App() {
                     disabled={isPending || isConfirming || !isConnected || isWrongNetwork}
                     className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-40"
                   >
-                    {isPending || isConfirming ? 'Confirming...' : `1. Approve ${swapFrom}`}
+                    {isPending || isConfirming ? 'Confirming...' : `1. Approve ${ASSETS[swapFrom].symbol}`}
                   </button>
                 )}
 
@@ -975,7 +1131,7 @@ export default function App() {
                   }
                   className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold disabled:opacity-40"
                 >
-                  {isPending || isConfirming ? 'Confirming...' : `Swap ${swapFrom} → ${swapTo}`}
+                  {isPending || isConfirming ? 'Confirming...' : `Swap ${ASSETS[swapFrom].symbol} → ${ASSETS[swapTo].symbol}`}
                 </button>
               </div>
             )}
@@ -1000,7 +1156,7 @@ export default function App() {
                 <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2 text-sm">
                   <div className="flex justify-between text-zinc-400">
                     <span>Pool Reserves</span>
-                    <span className="text-white">{formatAmt(reserve0)} USDC · {formatAmt(reserve1)} EURC</span>
+                    <span className="text-white">{formatAmt(reserve0, token0.decimals)} {token0.symbol} · {formatAmt(reserve1, token1.decimals)} {token1.symbol}</span>
                   </div>
                   <div className="flex justify-between text-zinc-400">
                     <span>Your Share</span>
@@ -1010,19 +1166,27 @@ export default function App() {
 
                 {liqMode === 'add' && (
                   <div className="space-y-4">
+                    <div className="flex gap-2">
+                      {[25, 50, 75, 100].map((pct) => (
+                        <button
+                          key={pct}
+                          onClick={() => setLiqPercent(pct)}
+                          className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10"
+                        >
+                          {pct === 100 ? 'MAX' : `${pct}%`}
+                        </button>
+                      ))}
+                    </div>
+
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
                       <div className="flex justify-between text-xs text-zinc-500">
-                        <span>USDC</span>
-                        {isConnected && (
-                          <button type="button" className="text-zinc-400 hover:text-white" onClick={() => usdcBal && setLiqAmount0(formatUnits(usdcBal, 6))}>
-                            Balance: {formatAmt(usdcBal)}
-                          </button>
-                        )}
+                        <span>{token0.symbol}</span>
+                        {isConnected && <span>Balance: {formatAmt(token0Bal, token0.decimals)}</span>}
                       </div>
                       <input
                         type="number"
                         value={liqAmount0}
-                        onChange={(e) => setLiqAmount0(e.target.value)}
+                        onChange={(e) => handleLiqAmount0Change(e.target.value)}
                         placeholder="0.00"
                         className="w-full bg-transparent text-2xl font-semibold outline-none"
                       />
@@ -1030,44 +1194,40 @@ export default function App() {
 
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
                       <div className="flex justify-between text-xs text-zinc-500">
-                        <span>EURC</span>
-                        {isConnected && (
-                          <button type="button" className="text-zinc-400 hover:text-white" onClick={() => eurcBal && setLiqAmount1(formatUnits(eurcBal, 6))}>
-                            Balance: {formatAmt(eurcBal)}
-                          </button>
-                        )}
+                        <span>{token1.symbol}</span>
+                        {isConnected && <span>Balance: {formatAmt(token1Bal, token1.decimals)}</span>}
                       </div>
                       <input
                         type="number"
                         value={liqAmount1}
-                        onChange={(e) => setLiqAmount1(e.target.value)}
+                        onChange={(e) => handleLiqAmount1Change(e.target.value)}
                         placeholder="0.00"
                         className="w-full bg-transparent text-2xl font-semibold outline-none"
                       />
                     </div>
 
-                    {!isUsdcLiqApproved && !!liqAmount0 && (
+                    {!isToken0LiqApproved && !!liqAmount0 && (
                       <button
-                        onClick={() => approveLiqToken('USDC')}
+                        onClick={() => approveLiqToken(0)}
                         disabled={isPending || isConfirming}
                         className="w-full py-3 rounded-xl bg-blue-600 text-white font-medium disabled:opacity-40"
                       >
-                        Approve USDC
+                        Approve {token0.symbol}
                       </button>
                     )}
-                    {!isEurcLiqApproved && !!liqAmount1 && (
+                    {!isToken1LiqApproved && !!liqAmount1 && (
                       <button
-                        onClick={() => approveLiqToken('EURC')}
+                        onClick={() => approveLiqToken(1)}
                         disabled={isPending || isConfirming}
                         className="w-full py-3 rounded-xl bg-blue-600 text-white font-medium disabled:opacity-40"
                       >
-                        Approve EURC
+                        Approve {token1.symbol}
                       </button>
                     )}
 
                     <button
                       onClick={addLiquidity}
-                      disabled={!isUsdcLiqApproved || !isEurcLiqApproved || isPending || isConfirming || !liqAmount0 || !liqAmount1 || !isConnected || isWrongNetwork}
+                      disabled={!isToken0LiqApproved || !isToken1LiqApproved || isPending || isConfirming || !liqAmount0 || !liqAmount1 || !isConnected || isWrongNetwork}
                       className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black font-semibold disabled:opacity-40"
                     >
                       {isPending || isConfirming ? 'Confirming...' : 'Add Liquidity'}
@@ -1077,24 +1237,8 @@ export default function App() {
 
                 {liqMode === 'remove' && (
                   <div className="space-y-4">
-                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 space-y-2 text-sm">
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Estimated to receive</span>
-                        <span className="text-white font-medium">
-                          {formatAmt(
-                            userShares && totalShares && totalShares > 0n && removeShares
-                              ? (BigInt(removeShares || '0') * reserve0) / totalShares
-                              : 0n
-                          )}{' '}
-                          USDC +{' '}
-                          {formatAmt(
-                            userShares && totalShares && totalShares > 0n && removeShares
-                              ? (BigInt(removeShares || '0') * reserve1) / totalShares
-                              : 0n
-                          )}{' '}
-                          EURC
-                        </span>
-                      </div>
+                    <div className="text-sm text-zinc-400 text-center">
+                      Your share: <span className="text-emerald-400 font-medium">{formatSharePct(sharePct)}</span>
                     </div>
 
                     <div className="flex gap-2">
@@ -1122,6 +1266,27 @@ export default function App() {
                         placeholder="0"
                         className="w-full bg-transparent text-2xl font-semibold outline-none"
                       />
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm space-y-1">
+                      <div className="text-zinc-400">You will receive</div>
+                      <div className="text-white font-medium">
+                        {formatAmt(
+                          userShares && totalShares && totalShares > 0n && removeShares
+                            ? (BigInt(removeShares || '0') * reserve0) / totalShares
+                            : 0n,
+                          token0.decimals
+                        )}{' '}
+                        {token0.symbol}
+                        {' + '}
+                        {formatAmt(
+                          userShares && totalShares && totalShares > 0n && removeShares
+                            ? (BigInt(removeShares || '0') * reserve1) / totalShares
+                            : 0n,
+                          token1.decimals
+                        )}{' '}
+                        {token1.symbol}
+                      </div>
                     </div>
 
                     <button

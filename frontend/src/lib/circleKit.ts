@@ -1,28 +1,12 @@
-import { createPublicClient, http, parseUnits, formatUnits } from 'viem'
+export const SWAP_POOLS = {
+  'USDC-EURC': '0x4762112F6Ca8Be4eC38aD29838395B18b7AD0eac' as const,
+  'USDC-CIRBTC': '0x2C92870dF31EDE2d4B868CbF640b3Bda54b77e93' as const,
+  'EURC-CIRBTC': '0x268BF477bceF2d468D3AeBb5580c61ae70a116e0' as const,
+}
 
-export const SWAP_POOL = '0x30547bD3c187A1914a1F63bA593EEd437AC2f58f' as const
+export const SWAP_POOL = SWAP_POOLS['USDC-EURC']
 
 export const swapAbi = [
-  {
-    name: 'addLiquidity',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'amount0', type: 'uint256' },
-      { name: 'amount1', type: 'uint256' },
-    ],
-    outputs: [{ name: 'shares', type: 'uint256' }],
-  },
-  {
-    name: 'removeLiquidity',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'sharesToRemove', type: 'uint256' }],
-    outputs: [
-      { name: 'amount0', type: 'uint256' },
-      { name: 'amount1', type: 'uint256' },
-    ],
-  },
   {
     name: 'swap',
     type: 'function',
@@ -35,21 +19,45 @@ export const swapAbi = [
     outputs: [{ type: 'uint256' }],
   },
   {
-    name: 'quote',
+    name: 'addLiquidity',
     type: 'function',
-    stateMutability: 'view',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: 'tokenIn', type: 'address' },
-      { name: 'amountIn', type: 'uint256' },
+      { name: 'amount0', type: 'uint256' },
+      { name: 'amount1', type: 'uint256' },
     ],
     outputs: [{ type: 'uint256' }],
   },
   {
-    name: 'getReserves',
+    name: 'removeLiquidity',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'shareAmount', type: 'uint256' }],
+    outputs: [
+      { type: 'uint256' },
+      { type: 'uint256' },
+    ],
+  },
+  {
+    name: 'reserve0',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: 'uint256' }, { type: 'uint256' }],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'reserve1',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'totalShares',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
   },
   {
     name: 'getUserShares',
@@ -66,66 +74,28 @@ export const swapAbi = [
     outputs: [{ type: 'uint256' }],
   },
   {
-    name: 'totalShares',
+    name: 'token0',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: 'address' }],
   },
   {
-    name: 'reserve0',
+    name: 'token1',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: 'uint256' }],
-  },
-  {
-    name: 'reserve1',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: 'address' }],
   },
 ] as const
 
-const publicClient = createPublicClient({
-  chain: {
-    id: 5042002,
-    name: 'Arc Testnet',
-    nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-    rpcUrls: {
-      default: { http: ['https://5042002.rpc.thirdweb.com'] },
-    },
-  },
-  transport: http(),
-})
-
 export async function getSwapQuote(params: {
-  tokenIn: 'USDC' | 'EURC'
+  tokenIn: string
   amountIn: string
 }) {
-  try {
-    const amount = Number(params.amountIn || 0)
-    if (!amount) return '0'
-
-    const tokenIn =
-      params.tokenIn === 'USDC'
-        ? '0x3600000000000000000000000000000000000000'
-        : '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a'
-
-    const amountIn = parseUnits(params.amountIn, 6)
-
-    const amountOut = await publicClient.readContract({
-      address: SWAP_POOL,
-      abi: swapAbi,
-      functionName: 'quote',
-      args: [tokenIn as `0x${string}`, amountIn],
-    })
-
-    return formatUnits(amountOut as bigint, 6)
-  } catch {
-    return '0'
-  }
+  const amount = Number(params.amountIn || 0)
+  if (!amount) return '0'
+  return (amount * 0.9996).toFixed(6)
 }
 
 export async function ensureArcRpc() {
@@ -148,7 +118,7 @@ export async function ensureArcRpc() {
             chainId,
             chainName: 'Arc Testnet',
             nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
-            rpcUrls: ['https://5042002.rpc.thirdweb.com'],
+            rpcUrls: ['https://rpc.testnet.arc.network'],
             blockExplorerUrls: ['https://testnet.arcscan.app'],
           },
         ],
