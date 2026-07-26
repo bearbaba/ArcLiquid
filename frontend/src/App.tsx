@@ -51,14 +51,14 @@ const ASSETS: Record<
     name: 'Euro Coin',
     address: '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
     decimals: 6,
-    pool: '0x4455eb4351936996B71fa87425037d7f744F40A2',
+    pool: '0x75EA2cFAb03B92822Be363853643E0a538Ab275C',
   },
   CIRBTC: {
     symbol: 'cirBTC',
     name: 'Circle BTC',
     address: '0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF',
     decimals: 8,
-    pool: '0x75EA2cFAb03B92822Be363853643E0a538Ab275C',
+    pool: '0x4455eb4351936996B71fa87425037d7f744F40A2',
   },
   USYC: {
     symbol: 'USYC',
@@ -128,7 +128,7 @@ function formatSharePct(bps?: bigint) {
 
 function rpcHint(msg: string) {
   if (/rate limit/i.test(msg)) {
-    return 'RPC rate limited. Set MetaMask Arc RPC to https://5042002.rpc.thirdweb.com, wait 30s, retry once.'
+    return 'RPC rate limited. Switch MetaMask Arc RPC and retry.'
   }
   return msg
 }
@@ -348,6 +348,16 @@ export default function App() {
     functionName: 'totalShares',
   })
 
+  useEffect(() => {
+    if (!address || !poolLive) return
+    refetchAllowance()
+    refetchBal()
+    refetchUserSupply()
+    refetchUserDebt()
+    refetchHealth()
+    refetchMaxBorrow()
+  }, [assetId, address, poolLive])
+
   const reserve0 = reserve0Data ?? 0n
   const reserve1 = reserve1Data ?? 0n
 
@@ -408,6 +418,11 @@ export default function App() {
     if (isError) toast.error('Transaction failed')
   }, [isSuccess, isError])
 
+  const handleAmountChange = (value: string) => {
+    const cleaned = value.replace(',', '.')
+    setAmount(cleaned)
+  }
+
   const parsedAmount = amount ? parseUnits(amount, asset.decimals) : 0n
   const isApproved = !!(allowance && amount && allowance >= parsedAmount)
   const swapParsed = swapAmount ? parseUnits(swapAmount, 6) : 0n
@@ -467,7 +482,10 @@ export default function App() {
         args: [poolAddr, maxUint256],
       },
       {
-        onSuccess: () => toast.success('Approve submitted'),
+        onSuccess: () => {
+          toast.success('Approve submitted')
+          setTimeout(() => refetchAllowance(), 2000)
+        },
         onError: (e: any) => toast.error(rpcHint(e?.shortMessage || e?.message || 'Failed')),
       }
     )
@@ -477,7 +495,7 @@ export default function App() {
     if (!poolLive) return toast.error(`${asset.symbol} pool not deployed`)
     if (!amount || !address) return toast.error('Connect wallet and enter amount')
     if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
-    if (isBlocked) return toast.error('Blocked by Arc USDC blocklist')
+    if (assetId === 'USDC' && isBlocked) return toast.error('Blocked by Arc USDC blocklist')
     if (complianceOn && !isCompliant) return toast.error('Not compliant')
     if (tab === 'supply') {
       if (!tokenBal || parsedAmount > tokenBal) return toast.error('Exceeds balance')
@@ -1161,7 +1179,7 @@ export default function App() {
                     <input
                       type="number"
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
+                      onChange={(e) => handleAmountChange(e.target.value)}
                       placeholder="0.00"
                       disabled={!poolLive}
                       className="flex-1 min-w-0 bg-black/50 border border-white/10 rounded-xl px-5 py-4 text-3xl font-semibold outline-none focus:border-emerald-500/50 disabled:opacity-40"
