@@ -174,7 +174,7 @@ export default function App() {
   const [liqMode, setLiqMode] = useState<LiquidityMode>('add')
   const [liqAmount0, setLiqAmount0] = useState('')
   const [liqAmount1, setLiqAmount1] = useState('')
-  const [removeShares, setRemoveShares] = useState('')
+  const [removeAmount0, setRemoveAmount0] = useState('')
   const [showFromSelector, setShowFromSelector] = useState(false)
   const [showToSelector, setShowToSelector] = useState(false)
 
@@ -204,7 +204,7 @@ export default function App() {
     setSwapAmount('')
     setLiqAmount0('')
     setLiqAmount1('')
-    setRemoveShares('')
+    setRemoveAmount0('')
   }, [swapPair])
 
   const { data: totalSupply, refetch: refetchTotalSupply } = useReadContract({
@@ -400,7 +400,32 @@ export default function App() {
     return getAmountOut(swapParsed, reserve1, reserve0)
   }, [swapParsed, reserve0, reserve1, swapFrom, token0.address])
 
-  const swapQuote = swapQuoteBn > 0n ? formatUnits(swapQuoteBn, ASSETS[swapTo].decimals) : '0'
+  const userToken0Max =
+    userShares && totalShares && totalShares > 0n && reserve0 > 0n
+      ? (userShares * reserve0) / totalShares
+      : 0n
+
+  const removeSharesBn = useMemo(() => {
+    if (!removeAmount0 || reserve0 === 0n || !totalShares || totalShares === 0n) return 0n
+    try {
+      const amt0 = parseUnits(removeAmount0, token0.decimals)
+      if (amt0 === 0n) return 0n
+      const shares = (amt0 * totalShares) / reserve0
+      if (userShares && shares > userShares) return userShares
+      return shares
+    } catch {
+      return 0n
+    }
+  }, [removeAmount0, reserve0, totalShares, token0.decimals, userShares])
+
+  const estimatedReceive0 =
+    totalShares && totalShares > 0n && removeSharesBn > 0n
+      ? (removeSharesBn * reserve0) / totalShares
+      : 0n
+  const estimatedReceive1 =
+    totalShares && totalShares > 0n && removeSharesBn > 0n
+      ? (removeSharesBn * reserve1) / totalShares
+      : 0n
 
   const { borrowApy, supplyApy } = useMemo(() => {
     if (baseRateOnchain === undefined || slope1Onchain === undefined || slope2Onchain === undefined || optimalUtilOnchain === undefined) {
@@ -454,7 +479,7 @@ export default function App() {
       setSwapAmount('')
       setLiqAmount0('')
       setLiqAmount1('')
-      setRemoveShares('')
+      setRemoveAmount0('')
     }
     if (isError) toast.error('Transaction failed')
   }, [isSuccess, isError])
@@ -562,6 +587,12 @@ export default function App() {
     if (!token1Bal) return
     const amt = (token1Bal * BigInt(pct)) / 100n
     setLiqAmount1(formatUnits(amt, token1.decimals))
+  }
+
+  const setRemovePercent = (pct: number) => {
+    if (!userToken0Max || userToken0Max === 0n) return
+    const amt = (userToken0Max * BigInt(pct)) / 100n
+    setRemoveAmount0(formatUnits(amt, token0.decimals))
   }
 
   const screenWallet = async () => {
@@ -728,16 +759,15 @@ export default function App() {
   const removeLiquidity = () => {
     if (!isConnected) return toast.error('Connect wallet first')
     if (isWrongNetwork) return toast.error('Switch to Arc Testnet')
-    if (!removeShares || Number(removeShares) <= 0) return toast.error('Enter shares to remove')
-    const shareAmount = BigInt(removeShares)
-    if (userShares && shareAmount > userShares) return toast.error('Exceeds your shares')
+    if (removeSharesBn === 0n) return toast.error('Enter amount to remove')
+    if (userShares && removeSharesBn > userShares) return toast.error('Exceeds your shares')
 
     writeContract(
       {
         address: currentSwapPool,
         abi: swapAbi,
         functionName: 'removeLiquidity',
-        args: [shareAmount],
+        args: [removeSharesBn],
       },
       {
         onSuccess: () => toast.success('Remove liquidity submitted'),
@@ -767,14 +797,16 @@ export default function App() {
 
   const tokenOptions: SwapToken[] = ['USDC', 'EURC', 'CIRBTC']
 
-  const estimatedReceive0 =
-    userShares && totalShares && totalShares > 0n && removeShares
-      ? (BigInt(removeShares || '0') * reserve0) / totalShares
-      : 0n
-  const estimatedReceive1 =
-    userShares && totalShares && totalShares > 0n && removeShares
-      ? (BigInt(removeShares || '0') * reserve1) / totalShares
-      : 0n
+  const exceedsRemoveAmount =
+    !!removeAmount0 &&
+    userToken0Max > 0n &&
+    (() => {
+      try {
+        return parseUnits(removeAmount0, token0.decimals) > userToken0Max
+      } catch {
+        return false
+      }
+    })()
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -1249,23 +1281,53 @@ export default function App() {
                   <div className="space-y-4">
                     <div className="text-sm text-zinc-400 text-center">
                       Your share: <span className="text-emerald-400 font-medium">{formatSharePct(sharePct)}</span>
+                      {userToken0Max > 0n && (
+                        <span className="ml-2 text-zinc-500">
+                          (max {formatAmt(userToken0Max, token0.decimals)} {token0.symbol})
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex gap-2">
                       {[25, 50, 75, 100].map((pct) => (
                         <button
                           key={pct}
-                          onClick={() => {
-                            if (!userShares) return
-                            const shares = (userShares * BigInt(pct)) / 100n
-                            setRemoveShares(shares.toString())
-                          }}
-                          className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10"
+                          onClick={() => setRemovePercent(pct)}
+                          disabled={!userShares || userShares === 0n}
+                          className="flex-1 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10 disabled:opacity-40"
                         >
                           {pct === 100 ? 'MAX' : `${pct}%`}
                         </button>
                       ))}
                     </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                      <div className="flex justify-between text-xs text-zinc-500 mb-2">
+                        <span>Amount to remove ({token0.symbol})</span>
+                        {isConnected && userToken0Max > 0n && (
+                          <button
+                            type="button"
+                            className="text-zinc-400 hover:text-white"
+                            onClick={() => setRemoveAmount0(formatUnits(userToken0Max, token0.decimals))}
+                          >
+                            Max: {formatAmt(userToken0Max, token0.decimals)}
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        value={removeAmount0}
+                        onChange={(e) => setRemoveAmount0(e.target.value.replace(',', '.'))}
+                        placeholder="0.00"
+                        className="w-full bg-transparent text-2xl font-semibold outline-none"
+                      />
+                    </div>
+
+                    {exceedsRemoveAmount && (
+                      <div className="text-center text-sm text-red-400">
+                        Amount exceeds your position ({formatAmt(userToken0Max, token0.decimals)} {token0.symbol})
+                      </div>
+                    )}
 
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4 text-sm space-y-1">
                       <div className="text-zinc-400">You will receive</div>
@@ -1276,27 +1338,17 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                      <div className="text-xs text-zinc-500 mb-2">Shares to remove</div>
-                      <input
-                        type="number"
-                        value={removeShares}
-                        onChange={(e) => setRemoveShares(e.target.value)}
-                        placeholder="0"
-                        className="w-full bg-transparent text-2xl font-semibold outline-none"
-                      />
-                    </div>
-
                     <button
                       onClick={removeLiquidity}
                       disabled={
                         isPending ||
                         isConfirming ||
-                        !removeShares ||
+                        removeSharesBn === 0n ||
                         !isConnected ||
                         isWrongNetwork ||
                         !userShares ||
-                        userShares === 0n
+                        userShares === 0n ||
+                        exceedsRemoveAmount
                       }
                       className="w-full py-4 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold disabled:opacity-40"
                     >
@@ -1322,7 +1374,8 @@ export default function App() {
                 )}
                 {tab === 'withdraw' && isConnected && poolLive && (
                   <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm text-emerald-300">
-                    You can withdraw up to <strong>{formatAmt(userSupply, asset.decimals)}</strong> {asset.symbol}</div>
+                    You can withdraw up to <strong>{formatAmt(userSupply, asset.decimals)}</strong> {asset.symbol}
+                  </div>
                 )}
                 {tab === 'repay' && isConnected && poolLive && (
                   <div className="mb-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-sm text-orange-300">
