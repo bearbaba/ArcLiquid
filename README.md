@@ -71,7 +71,7 @@ Flowlend lets users supply, borrow, swap and provide liquidity using USDC, EURC 
 
 
 
-\- One of the features we're currently focusing on developing is Supply & Borrow.
+\*\* One of the features we're currently focusing on developing is Supply & Borrow.
 
 \- Users can:
 
