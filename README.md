@@ -70,6 +70,22 @@ Flowlend lets users supply, borrow, swap and provide liquidity using USDC, EURC 
 
 
 
+
+\- One of the features we're currently focusing on developing is Supply & Borrow.
+
+\- Users can:
+
+\- • Deposit assets into the protocol to earn returns.
+
+\- • Use deposited assets as collateral.
+
+\- • Borrow other assets directly on the same platform.
+
+\- • Monitor Health Factor and risk indicators in real time.
+
+\- We aim to make the lending process more intuitive and accessible, even for those new to DeFi.
+
+
 \---
 
 
