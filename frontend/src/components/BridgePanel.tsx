@@ -49,13 +49,14 @@ export default function BridgePanel() {
   const setPercent = (pct: number) => {
     if (usdcBal === undefined) return
     const v = (Number(usdcBal) * pct) / 100 / 10 ** ASSETS.USDC.decimals
-    setAmount(v.toString())
+    setAmount(v.toFixed(6))
   }
 
   const handleBridge = async () => {
     if (!isConnected || !address) return toast.error("Connect wallet first")
     if (fromChain === toChain) return toast.error("Choose different chains")
-    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount")
+    const clean = amount.replace(",", ".").trim()
+    if (!clean || Number(clean) <= 0) return toast.error("Enter a valid amount")
 
     setLoading(true)
     setTxHash(undefined)
@@ -63,15 +64,15 @@ export default function BridgePanel() {
       const { kit, adapter } = await getAppKit()
       const result = await kit.bridge({
         from: { adapter, chain: fromChain },
-        to: { chain: toChain },
-        amount,
-        token: "USDC",
-      } as any)
+        to: { adapter, chain: toChain },
+        amount: clean,
+      })
 
       const hash =
         (result as any)?.hash ||
         (result as any)?.transactionHash ||
-        (result as any)?.txHash
+        (result as any)?.txHash ||
+        (result as any)?.steps?.find((s: any) => s?.txHash)?.txHash
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
@@ -90,7 +91,7 @@ export default function BridgePanel() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <div className="text-xs text-[var(--text-muted)] mb-1.5">From</div>
         <select
@@ -144,21 +145,22 @@ export default function BridgePanel() {
           )}
         </div>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(e.target.value.replace(",", "."))}
           placeholder="0.00"
           className="field-input w-full px-4 py-3 text-xl outline-none"
         />
         {fromChain === "Arc_Testnet" && (
           <div className="flex justify-end mt-2">
-            <div className="flex gap-1 w-1/4 min-w-[140px]">
+            <div className="flex gap-1">
               {[25, 50, 75, 100].map((pct) => (
                 <button
                   key={pct}
                   type="button"
                   onClick={() => setPercent(pct)}
-                  className="pct-btn flex-1 py-1 text-[10px]"
+                  className="pct-btn px-2 py-1 text-[10px]"
                 >
                   {pct === 100 ? "MAX" : `${pct}%`}
                 </button>
@@ -172,7 +174,7 @@ export default function BridgePanel() {
         type="button"
         onClick={handleBridge}
         disabled={loading || !isConnected || !amount}
-        className="btn-action w-full py-4 disabled:opacity-40 flex items-center justify-center gap-2"
+        className="btn-action w-full py-3 disabled:opacity-40 flex items-center justify-center gap-2"
       >
         {loading ? (
           <>

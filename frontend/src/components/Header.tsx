@@ -14,17 +14,9 @@ export default function Header({ onOpenProfile }: HeaderProps) {
 
   return (
     <header className="border-b border-[var(--border)] bg-[var(--bg-elevated)]">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="font-bold text-lg text-[var(--text)] shrink-0">Flowlend</div>
-          <a
-            href="https://faucet.circle.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-emerald-400 hover:underline shrink-0"
-          >
-            Faucet
-          </a>
           {name ? (
             <button
               type="button"
@@ -37,6 +29,14 @@ export default function Header({ onOpenProfile }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <a
+            href="https://faucet.circle.com"
+            target="_blank"
+            rel="noreferrer"
+            className="px-2.5 py-1.5 rounded-lg border border-emerald-500/40 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/10"
+          >
+            Faucet
+          </a>
           <button
             type="button"
             onClick={onOpenProfile}

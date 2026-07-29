@@ -111,14 +111,14 @@ html.light .field-input {
   opacity: 0.4;
 }
 .panel-form {
-  max-width: 28rem;
+  max-width: 30rem;
   margin-left: auto;
   margin-right: auto;
   width: 100%;
 }
 
 .panel-wide {
-  max-width: 56rem;
+  max-width: 42rem;
   margin-left: auto;
   margin-right: auto;
   width: 100%;

@@ -22,7 +22,7 @@ interface NavbarProps {
 export default function Navbar({ page, setPage, assetId, setAssetId }: NavbarProps) {
   return (
     <nav className="border-b border-[var(--border)] bg-[var(--bg-elevated)]">
-      <div className="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center justify-end gap-2">
+      <div className="max-w-4xl mx-auto px-4 py-2 flex flex-wrap items-center justify-center gap-2">
         {PAGES.map((p) => (
           <button
             key={p.id}
