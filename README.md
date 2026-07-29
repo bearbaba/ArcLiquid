@@ -2,7 +2,7 @@
 
 Permissionless isolated money markets + constant-product swap on Arc Testnet.
 
-Live: https://flowlend-silk.vercel.app/
+Live: https://flowlendarcliquid.vercel.app/
 
 ## What it is
 
