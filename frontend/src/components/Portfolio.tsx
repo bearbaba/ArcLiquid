@@ -65,14 +65,11 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
       ? (userShares * (reserve1 ?? 0n)) / totalShares
       : 0n
 
-  // Demo APR label for LP fee share (constant-product fee ~0.04%)
-  const aprLabel = "~2–8% (fees)"
-
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 space-y-2">
       <div className="flex justify-between items-center">
         <span className="font-semibold text-[var(--text)]">{pair}</span>
-        <span className="text-xs text-emerald-400">APR {aprLabel}</span>
+        <span className="text-xs text-emerald-400">APR ~2–8% (fees)</span>
       </div>
       <div className="text-sm text-[var(--text-muted)]">
         Share: <span className="text-[var(--text)]">{formatSharePct(sharePct)}</span>
@@ -117,18 +114,25 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
 
 export default function Portfolio({ assetId, setPage }: PortfolioProps) {
   const { usdcBal, eurcBal, cirbtcBal } = useBalances()
-  const { userSupply, userDebt, health, maxBorrow, poolLive, baseRate, slope1, util, reserveFactor } =
-    usePoolData(assetId)
+  const {
+    userSupply,
+    userDebt,
+    health,
+    poolLive,
+    baseRate,
+    slope1,
+    util,
+    reserveFactor,
+  } = usePoolData(assetId)
   const asset = ASSETS[assetId]
   const healthValue = formatHealth(health)
   const history = typeof window !== "undefined" ? getTxHistory() : []
 
-  // rough supply APY from rate model
   let supplyApy = 0n
   if (baseRate && slope1 && util) {
-    const borrowApy = baseRate + (slope1 * util) / (10n ** 18n)
+    const borrowApy = baseRate + (slope1 * util) / 10n ** 18n
     const rf = reserveFactor ?? 0n
-    supplyApy = (borrowApy * util * ((10n ** 18n) - rf)) / ((10n ** 18n) * (10n ** 18n))
+    supplyApy = (borrowApy * util * (10n ** 18n - rf)) / (10n ** 18n * 10n ** 18n)
   }
 
   return (
