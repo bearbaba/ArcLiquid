@@ -36,9 +36,7 @@ const arcTestnet = {
 
 const config = getDefaultConfig({
   appName: "Flowlend",
-  projectId:
-    import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ||
-    "13d1dd812b4dd10a1d67aba4c9431081",
+  projectId: "13d1dd812b4dd10a1d67aba4c9431081",
   chains: [arcTestnet],
   transports: {
     [arcTestnet.id]: fallback(ARC_RPCS.map((url) => http(url))),
