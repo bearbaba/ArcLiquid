@@ -1,8 +1,15 @@
-import { useState } from "react"
-import { useAccount, useChainId, useReadContract } from "wagmi"
+import { useState, useEffect } from "react"
+import {
+  useAccount,
+  useChainId,
+  useReadContract,
+  useWriteContract,
+  useSendTransaction,
+  useWaitForTransactionReceipt,
+} from "wagmi"
+import { parseUnits, isAddress } from "viem"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { getAppKit } from "../lib/circleAppKit"
 import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
 import { ASSETS, formatAmt } from "../lib/assets"
@@ -18,6 +25,16 @@ const erc20Abi = [
     inputs: [{ name: "account", type: "address" }],
     outputs: [{ type: "uint256" }],
   },
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
 ] as const
 
 export default function SendPanel() {
@@ -26,66 +43,90 @@ export default function SendPanel() {
   const [token, setToken] = useState<Token>("USDC")
   const [to, setTo] = useState("")
   const [amount, setAmount] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
 
   const isWrongNetwork = isConnected && chainId !== ARC_CHAIN_ID
   const asset = ASSETS[token]
+  const isNativeUsdc = token === "USDC"
 
   const { data: bal, refetch: refetchBal } = useReadContract({
     address: asset.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
+    query: { enabled: !!address && !isNativeUsdc },
   })
 
-  const setPercent = (pct: number) => {
-    if (bal === undefined) return
-    setAmount(((Number(bal) * pct) / 100 / 10 ** asset.decimals).toString())
-  }
+  const {
+    writeContract,
+    data: erc20Hash,
+    isPending: erc20Pending,
+    error: erc20Error,
+  } = useWriteContract()
 
-  const handleSend = async () => {
-    if (!isConnected || !address) return toast.error("Connect wallet first")
-    if (isWrongNetwork) return toast.error("Switch to Arc Testnet")
-    if (!to || !/^0x[a-fA-F0-9]{40}$/.test(to)) return toast.error("Invalid recipient address")
-    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount")
+  const {
+    sendTransaction,
+    data: nativeHash,
+    isPending: nativePending,
+    error: nativeError,
+  } = useSendTransaction()
 
-    setLoading(true)
-    setTxHash(undefined)
-    try {
-      const { kit, adapter } = await getAppKit()
-      const result = await kit.send({
-        from: { adapter, chain: "Arc_Testnet" },
-        to,
-        amount,
-        token,
-      })
+  const hash = erc20Hash || nativeHash
+  const isPending = erc20Pending || nativePending
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
-      const hash =
-        (result as any)?.hash ||
-        (result as any)?.transactionHash ||
-        (result as any)?.txHash
-
-      if (hash && typeof hash === "string" && hash.startsWith("0x")) {
-        setTxHash(hash as `0x${string}`)
-      }
-
-      toast.success("Transfer submitted")
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success("Transfer successful")
       addPoints(REWARDS.send)
       setAmount("")
       setTo("")
-      setTimeout(() => refetchBal(), 2500)
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err?.message || "Transfer failed")
-    } finally {
-      setLoading(false)
+      setTimeout(() => refetchBal(), 2000)
     }
+  }, [isSuccess])
+
+  useEffect(() => {
+    const err = erc20Error || nativeError
+    if (err) toast.error((err as any)?.shortMessage || err.message || "Transfer failed")
+  }, [erc20Error, nativeError])
+
+  const cleanAmount = () => amount.replace(",", ".").trim()
+
+  const setPercent = (pct: number) => {
+    if (bal === undefined || isNativeUsdc) return
+    const v = (Number(bal) * pct) / 100 / 10 ** asset.decimals
+    setAmount(v.toFixed(Math.min(asset.decimals, 6)))
+  }
+
+  const handleSend = () => {
+    if (!isConnected || !address) return toast.error("Connect wallet first")
+    if (isWrongNetwork) return toast.error("Switch to Arc Testnet")
+    if (!to || !isAddress(to)) return toast.error("Invalid recipient address")
+    const clean = cleanAmount()
+    if (!clean || Number(clean) <= 0) return toast.error("Enter a valid amount")
+
+    let value: bigint
+    try {
+      value = parseUnits(clean, asset.decimals)
+    } catch {
+      return toast.error("Invalid amount")
+    }
+
+    if (isNativeUsdc) {
+      sendTransaction({ to: to as `0x${string}`, value })
+      return
+    }
+
+    writeContract({
+      address: asset.address,
+      abi: erc20Abi,
+      functionName: "transfer",
+      args: [to as `0x${string}`, value],
+    })
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
+    <div className="space-y-3">
+      <div className="flex gap-2 justify-center">
         {(["USDC", "EURC", "CIRBTC"] as Token[]).map((t) => (
           <button
             key={t}
@@ -100,55 +141,58 @@ export default function SendPanel() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 space-y-2">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-1.5">
         <div className="text-xs text-[var(--text-muted)]">Recipient address</div>
         <input
           type="text"
           value={to}
           onChange={(e) => setTo(e.target.value.trim())}
           placeholder="0x..."
-          className="field-input w-full px-3 py-2 text-lg outline-none font-mono"
+          className="field-input w-full px-3 py-2 text-sm outline-none font-mono"
         />
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 space-y-2">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-1.5">
         <div className="flex justify-between text-xs text-[var(--text-muted)]">
           <span>Amount</span>
-          {isConnected && (
+          {isConnected && !isNativeUsdc && (
             <span>
               Bal: {formatAmt(bal, asset.decimals)} {token}
             </span>
           )}
         </div>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(e.target.value.replace(",", "."))}
           placeholder="0.00"
-          className="field-input w-full px-3 py-2 text-3xl outline-none"
+          className="field-input w-full px-3 py-2 text-2xl outline-none"
         />
-        <div className="flex justify-end">
-          <div className="flex gap-1 w-1/4 min-w-[140px]">
-            {[25, 50, 75, 100].map((pct) => (
-              <button
-                key={pct}
-                type="button"
-                onClick={() => setPercent(pct)}
-                className="pct-btn flex-1 py-1 text-[10px]"
-              >
-                {pct === 100 ? "MAX" : `${pct}%`}
-              </button>
-            ))}
+        {!isNativeUsdc && (
+          <div className="flex justify-end">
+            <div className="flex gap-1">
+              {[25, 50, 75, 100].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setPercent(pct)}
+                  className="pct-btn px-2 py-1 text-[10px]"
+                >
+                  {pct === 100 ? "MAX" : `${pct}%`}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <button
         onClick={handleSend}
-        disabled={loading || !isConnected || isWrongNetwork || !to || !amount}
-        className="btn-action w-full py-4 disabled:opacity-40 flex items-center justify-center gap-2"
+        disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !to || !amount}
+        className="btn-action w-full py-3 disabled:opacity-40 flex items-center justify-center gap-2"
       >
-        {loading ? (
+        {isPending || isConfirming ? (
           <>
             <Loader2 size={18} className="animate-spin" />
             Sending...
@@ -158,7 +202,7 @@ export default function SendPanel() {
         )}
       </button>
 
-      <TxStatus hash={txHash} />
+      <TxStatus hash={hash} />
     </div>
   )
 }
