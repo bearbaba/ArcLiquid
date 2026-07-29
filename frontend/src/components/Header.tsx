@@ -17,6 +17,14 @@ export default function Header({ onOpenProfile }: HeaderProps) {
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="font-bold text-lg text-[var(--text)] shrink-0">Flowlend</div>
+          <a
+            href="https://faucet.circle.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-emerald-400 hover:underline shrink-0"
+          >
+            Faucet
+          </a>
           {name ? (
             <button
               type="button"
