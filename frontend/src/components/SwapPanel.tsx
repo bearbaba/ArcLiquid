@@ -193,7 +193,7 @@ export default function SwapPanel() {
   }
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="panel-form">
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm text-[var(--text-muted)]">Swap</div>

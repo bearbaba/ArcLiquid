@@ -110,3 +110,16 @@ html.light .field-input {
 .btn-action:disabled {
   opacity: 0.4;
 }
+.panel-form {
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+.panel-wide {
+  max-width: 56rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}

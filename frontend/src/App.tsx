@@ -27,19 +27,55 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {page === "dashboard" && (
-          <Dashboard assetId={assetId} setPage={setPage} setLendTab={setLendTab} />
+          <div className="panel-wide">
+            <Dashboard assetId={assetId} setPage={setPage} setLendTab={setLendTab} />
+          </div>
         )}
         {page === "lend" && (
-          <LendPanel assetId={assetId} lendTab={lendTab} setLendTab={setLendTab} />
+          <div className="panel-wide">
+            <LendPanel assetId={assetId} lendTab={lendTab} setLendTab={setLendTab} />
+          </div>
         )}
-        {page === "swap" && <SwapPanel />}
-        {page === "liquidity" && <LiquidityPanel />}
-        {page === "portfolio" && <Portfolio assetId={assetId} setPage={setPage} />}
-        {page === "payments" && <SendPanel />}
-        {page === "bridge" && <BridgePanel />}
-        {page === "profile" && <Profile setPage={setPage} />}
-        {page === "guide" && <Guide />}
-        {page === "treasury" && <Treasury />}
+        {page === "swap" && (
+          <div className="panel-form">
+            <SwapPanel />
+          </div>
+        )}
+        {page === "liquidity" && (
+          <div className="panel-wide">
+            <LiquidityPanel />
+          </div>
+        )}
+        {page === "portfolio" && (
+          <div className="panel-wide">
+            <Portfolio assetId={assetId} setPage={setPage} />
+          </div>
+        )}
+        {page === "payments" && (
+          <div className="panel-form">
+            <SendPanel />
+          </div>
+        )}
+        {page === "bridge" && (
+          <div className="panel-form">
+            <BridgePanel />
+          </div>
+        )}
+        {page === "profile" && (
+          <div className="panel-form">
+            <Profile setPage={setPage} />
+          </div>
+        )}
+        {page === "guide" && (
+          <div className="panel-wide">
+            <Guide />
+          </div>
+        )}
+        {page === "treasury" && (
+          <div className="panel-form">
+            <Treasury />
+          </div>
+        )}
       </main>
 
       <footer className="mt-12 py-6 border-t border-[var(--border)] text-center text-xs text-[var(--text-muted)]">
