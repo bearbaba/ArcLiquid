@@ -193,166 +193,164 @@ export default function SwapPanel() {
   }
 
   return (
-    <div className="panel-form">
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-[var(--text-muted)]">Swap</div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--text-muted)]">
-              Slippage{" "}
-              <span className="text-emerald-400 font-semibold">{slippageBps / 100}%</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowSettings((v) => !v)}
-              className="p-2 rounded-lg border border-[var(--border)] text-[var(--text-muted)]"
-            >
-              ⚙
-            </button>
-          </div>
-        </div>
-
-        {showSettings && (
-          <div className="rounded-xl border border-[var(--border)] p-3 space-y-2 text-sm">
-            <div className="text-xs font-medium text-[var(--text)]">Slippage tolerance</div>
-            <div className="flex gap-2">
-              {[10, 50, 100, 300].map((bps) => (
-                <button
-                  key={bps}
-                  type="button"
-                  onClick={() => setSlippageBps(bps)}
-                  className={`pct-btn flex-1 py-1.5 text-xs ${
-                    slippageBps === bps ? "ring-2 ring-white/50" : ""
-                  }`}
-                >
-                  {bps / 100}%
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-between text-xs text-[var(--text-muted)]">
-              <span>Min received</span>
-              <span className="text-[var(--text)]">
-                {formatAmt(minReceived, ASSETS[swapTo].decimals)} {ASSETS[swapTo].symbol}
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
-          <div className="flex justify-between text-xs text-[var(--text-muted)] mb-2">
-            <span>You pay</span>
-            {isConnected && (
-              <span>
-                Bal: {formatAmt(swapFromBal, ASSETS[swapFrom].decimals)}{" "}
-                {ASSETS[swapFrom].symbol}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              value={swapAmount}
-              onChange={(e) => setSwapAmount(e.target.value)}
-              placeholder="0.00"
-              className="field-input flex-1 min-w-0 px-3 py-2 text-3xl outline-none"
-            />
-            <select
-              value={swapFrom}
-              onChange={(e) => {
-                const next = e.target.value as SwapToken
-                setSwapFrom(next)
-                if (next === swapTo) setSwapTo(swapFrom)
-                reset()
-              }}
-              className="field-select w-28 shrink-0 px-2 py-2 text-sm"
-            >
-              {(["USDC", "EURC", "CIRBTC"] as SwapToken[]).map((t) => (
-                <option key={t} value={t}>
-                  {ASSETS[t].symbol}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex justify-end mt-2">
-            <div className="flex gap-1 w-1/4 min-w-[140px]">
-              {[25, 50, 75, 100].map((pct) => (
-                <button
-                  key={pct}
-                  type="button"
-                  onClick={() => setPercent(pct)}
-                  className="pct-btn flex-1 py-1 text-[10px]"
-                >
-                  {pct === 100 ? "MAX" : `${pct}%`}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-center">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-[var(--text-muted)]">Swap</div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[var(--text-muted)]">
+            Slippage{" "}
+            <span className="text-emerald-400 font-semibold">{slippageBps / 100}%</span>
+          </span>
           <button
             type="button"
-            onClick={() => {
-              setSwapFrom(swapTo)
-              setSwapTo(swapFrom)
-              setSwapAmount("")
-              reset()
-            }}
-            className="w-10 h-10 rounded-xl border border-[var(--border)] text-[var(--text)]"
+            onClick={() => setShowSettings((v) => !v)}
+            className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] text-xs"
           >
-            ⇅
+            ⚙
           </button>
         </div>
+      </div>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
-          <div className="text-xs text-[var(--text-muted)] mb-2">You receive (est.)</div>
-          <div className="flex gap-2 items-center">
-            <div className="field-input flex-1 min-w-0 px-3 py-2 text-3xl">
-              {formatAmt(swapQuoteBn, ASSETS[swapTo].decimals)}
-            </div>
-            <select
-              value={swapTo}
-              onChange={(e) => {
-                const next = e.target.value as SwapToken
-                setSwapTo(next)
-                if (next === swapFrom) setSwapFrom(swapTo)
-                reset()
-              }}
-              className="field-select w-28 shrink-0 px-2 py-2 text-sm"
-            >
-              {(["USDC", "EURC", "CIRBTC"] as SwapToken[]).map((t) => (
-                <option key={t} value={t}>
-                  {ASSETS[t].symbol}
-                </option>
-              ))}
-            </select>
+      {showSettings && (
+        <div className="rounded-xl border border-[var(--border)] p-3 space-y-2 text-xs">
+          <div className="font-medium text-[var(--text)]">Slippage tolerance</div>
+          <div className="flex gap-1.5">
+            {[10, 50, 100, 300].map((bps) => (
+              <button
+                key={bps}
+                type="button"
+                onClick={() => setSlippageBps(bps)}
+                className={`pct-btn flex-1 py-1 text-[10px] ${
+                  slippageBps === bps ? "ring-2 ring-white/50" : ""
+                }`}
+              >
+                {bps / 100}%
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between text-[11px] text-[var(--text-muted)]">
+            <span>Min received</span>
+            <span className="text-[var(--text)]">
+              {formatAmt(minReceived, ASSETS[swapTo].decimals)} {ASSETS[swapTo].symbol}
+            </span>
           </div>
         </div>
+      )}
 
-        {!!swapAmount && !exceedsBalance && !isApproved && (
-          <button
-            onClick={approveSwap}
-            disabled={isPending || isConfirming || !isConnected}
-            className="btn-action w-full py-4 disabled:opacity-40"
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
+        <div className="flex justify-between text-xs text-[var(--text-muted)] mb-2">
+          <span>You pay</span>
+          {isConnected && (
+            <span>
+              Bal: {formatAmt(swapFromBal, ASSETS[swapFrom].decimals)}{" "}
+              {ASSETS[swapFrom].symbol}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2 items-center">
+          <input
+            type="number"
+            value={swapAmount}
+            onChange={(e) => setSwapAmount(e.target.value)}
+            placeholder="0.00"
+            className="field-input flex-1 min-w-0 px-3 py-2 text-xl outline-none font-semibold"
+          />
+          <select
+            value={swapFrom}
+            onChange={(e) => {
+              const next = e.target.value as SwapToken
+              setSwapFrom(next)
+              if (next === swapTo) setSwapTo(swapFrom)
+              reset()
+            }}
+            className="field-select w-28 shrink-0 px-2 py-2 text-sm"
           >
-            {isPending || isConfirming ? "Confirming..." : `Approve ${ASSETS[swapFrom].symbol}`}
-          </button>
-        )}
-
-        {!!swapAmount && !exceedsBalance && isApproved && (
-          <button
-            onClick={runSwap}
-            disabled={isPending || isConfirming || swapQuoteBn === 0n || isWrongNetwork}
-            className="btn-action w-full py-4 disabled:opacity-40"
-          >
-            {isPending || isConfirming
-              ? "Confirming..."
-              : `Swap ${ASSETS[swapFrom].symbol} → ${ASSETS[swapTo].symbol}`}
-          </button>
-        )}
-
-        <TxStatus hash={hash} />
+            {(["USDC", "EURC", "CIRBTC"] as SwapToken[]).map((t) => (
+              <option key={t} value={t}>
+                {ASSETS[t].symbol}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex justify-end mt-2">
+          <div className="flex gap-1">
+            {[25, 50, 75, 100].map((pct) => (
+              <button
+                key={pct}
+                type="button"
+                onClick={() => setPercent(pct)}
+                className="pct-btn px-2 py-0.5 text-[10px]"
+              >
+                {pct === 100 ? "MAX" : `${pct}%`}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => {
+            setSwapFrom(swapTo)
+            setSwapTo(swapFrom)
+            setSwapAmount("")
+            reset()
+          }}
+          className="w-9 h-9 rounded-xl border border-[var(--border)] text-sm"
+        >
+          ⇅
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
+        <div className="text-xs text-[var(--text-muted)] mb-2">You receive (est.)</div>
+        <div className="flex gap-2 items-center">
+          <div className="field-input flex-1 min-w-0 px-3 py-2 text-xl font-semibold">
+            {formatAmt(swapQuoteBn, ASSETS[swapTo].decimals)}
+          </div>
+          <select
+            value={swapTo}
+            onChange={(e) => {
+              const next = e.target.value as SwapToken
+              setSwapTo(next)
+              if (next === swapFrom) setSwapFrom(swapTo)
+              reset()
+            }}
+            className="field-select w-28 shrink-0 px-2 py-2 text-sm"
+          >
+            {(["USDC", "EURC", "CIRBTC"] as SwapToken[]).map((t) => (
+              <option key={t} value={t}>
+                {ASSETS[t].symbol}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {!!swapAmount && !exceedsBalance && !isApproved && (
+        <button
+          onClick={approveSwap}
+          disabled={isPending || isConfirming || !isConnected}
+          className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40"
+        >
+          {isPending || isConfirming ? "Confirming..." : `Approve ${ASSETS[swapFrom].symbol}`}
+        </button>
+      )}
+
+      {!!swapAmount && !exceedsBalance && isApproved && (
+        <button
+          onClick={runSwap}
+          disabled={isPending || isConfirming || swapQuoteBn === 0n || isWrongNetwork}
+          className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40"
+        >
+          {isPending || isConfirming
+            ? "Confirming..."
+            : `Swap ${ASSETS[swapFrom].symbol} → ${ASSETS[swapTo].symbol}`}
+        </button>
+      )}
+
+      <TxStatus hash={hash} />
     </div>
   )
 }

@@ -13,11 +13,11 @@ export default function TxStatus({ hash }: TxStatusProps) {
   if (!hash) return null
 
   return (
-    <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text)]">
-      <div className="flex items-center gap-2">
-        {isLoading && <Loader2 size={16} className="animate-spin text-blue-400" />}
-        {isSuccess && <CheckCircle2 size={16} className="text-emerald-400" />}
-        {isError && <XCircle size={16} className="text-red-400" />}
+    <div className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-5 py-4 text-sm text-[var(--text)]">
+      <div className="flex items-center gap-2.5">
+        {isLoading && <Loader2 size={18} className="animate-spin text-blue-400" />}
+        {isSuccess && <CheckCircle2 size={18} className="text-emerald-400" />}
+        {isError && <XCircle size={18} className="text-red-400" />}
         <span className="font-medium">
           {isLoading && "Confirming..."}
           {isSuccess && "Transaction successful"}
@@ -29,10 +29,10 @@ export default function TxStatus({ hash }: TxStatusProps) {
         href={`https://testnet.arcscan.app/tx/${hash}`}
         target="_blank"
         rel="noreferrer"
-        className="mt-1 inline-flex items-center gap-1 text-xs text-blue-400 hover:underline"
+        className="mt-2 inline-flex items-center gap-1.5 text-sm text-blue-400 hover:underline"
       >
         {hash.slice(0, 10)}...{hash.slice(-8)}
-        <ExternalLink size={12} />
+        <ExternalLink size={14} />
       </a>
     </div>
   )

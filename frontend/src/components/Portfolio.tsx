@@ -66,13 +66,13 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
       : 0n
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 space-y-2">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 space-y-3">
       <div className="flex justify-between items-center">
-        <span className="font-semibold text-[var(--text)]">{pair}</span>
-        <span className="text-xs text-emerald-400">APR ~2–8% (fees)</span>
+        <span className="font-semibold text-base text-[var(--text)]">{pair}</span>
+        <span className="text-sm text-emerald-400">APR ~2–8% (fees)</span>
       </div>
       <div className="text-sm text-[var(--text-muted)]">
-        Share: <span className="text-[var(--text)]">{formatSharePct(sharePct)}</span>
+        Share: <span className="text-[var(--text)] font-medium">{formatSharePct(sharePct)}</span>
       </div>
       {hasPos ? (
         <>
@@ -80,11 +80,11 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
             Value ≈ {formatAmt(amt0, t0.decimals)} {t0.symbol} +{" "}
             {formatAmt(amt1, t1.decimals)} {t1.symbol}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={() => setPage("liquidity")}
-              className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs"
+              className="px-4 py-2 rounded-xl border border-[var(--border)] text-sm font-medium"
             >
               Manage
             </button>
@@ -93,7 +93,7 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
               onClick={() =>
                 toast.message("LP fees auto-compound into share value. Remove liquidity to realize.")
               }
-              className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-xs font-semibold border border-emerald-500/30"
+              className="px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-sm font-semibold border border-emerald-500/30"
             >
               Claim
             </button>
@@ -103,7 +103,7 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
         <button
           type="button"
           onClick={() => setPage("liquidity")}
-          className="px-3 py-1.5 rounded-lg bg-white/10 text-xs"
+          className="px-4 py-2 rounded-xl bg-white/10 text-sm font-medium"
         >
           Add liquidity
         </button>
@@ -136,11 +136,11 @@ export default function Portfolio({ assetId, setPage }: PortfolioProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Portfolio</h1>
+    <div className="space-y-7">
+      <h1 className="text-3xl font-semibold tracking-tight">Portfolio</h1>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3">
-        <div className="text-sm font-medium">Wallet balances</div>
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 md:p-7 space-y-4">
+        <div className="text-base font-medium">Wallet balances</div>
         {(
           [
             { id: "USDC" as AssetId, bal: usdcBal },
@@ -150,45 +150,45 @@ export default function Portfolio({ assetId, setPage }: PortfolioProps) {
         ).map(({ id, bal }) => (
           <div
             key={id}
-            className="flex justify-between text-sm py-2 border-b border-[var(--border)] last:border-0"
+            className="flex justify-between text-sm py-3 border-b border-[var(--border)] last:border-0"
           >
-            <span>{ASSETS[id].symbol}</span>
-            <span className="font-semibold text-[var(--text)]">
+            <span className="text-[var(--text-muted)]">{ASSETS[id].symbol}</span>
+            <span className="font-semibold text-base text-[var(--text)]">
               {formatAmt(bal, ASSETS[id].decimals)}
             </span>
           </div>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3">
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 md:p-7 space-y-4">
         <div className="flex justify-between items-center">
-          <div className="text-sm font-medium">Lending · {asset.symbol}</div>
-          <span className="text-xs text-emerald-400">Supply APR {formatApy(supplyApy)}</span>
+          <div className="text-base font-medium">Lending · {asset.symbol}</div>
+          <span className="text-sm text-emerald-400">Supply APR {formatApy(supplyApy)}</span>
         </div>
-        <div className="grid sm:grid-cols-3 gap-3 text-sm">
+        <div className="grid sm:grid-cols-3 gap-5 text-sm">
           <div>
-            <div className="text-xs text-[var(--text-muted)]">Supplied</div>
-            <div className="text-lg font-semibold text-emerald-400">
+            <div className="text-sm text-[var(--text-muted)]">Supplied</div>
+            <div className="text-2xl font-semibold text-emerald-400 mt-1">
               {poolLive ? formatAmt(userSupply, asset.decimals) : "—"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-[var(--text-muted)]">Borrowed</div>
-            <div className="text-lg font-semibold text-orange-400">
+            <div className="text-sm text-[var(--text-muted)]">Borrowed</div>
+            <div className="text-2xl font-semibold text-orange-400 mt-1">
               {poolLive ? formatAmt(userDebt, asset.decimals) : "—"}
             </div>
           </div>
           <div>
-            <div className="text-xs text-[var(--text-muted)]">Health</div>
-            <div className="text-lg font-semibold text-[var(--text)]">
+            <div className="text-sm text-[var(--text-muted)]">Health</div>
+            <div className="text-2xl font-semibold text-[var(--text)] mt-1">
               {poolLive ? healthValue : "—"}
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button
             onClick={() => setPage("lend")}
-            className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs"
+            className="px-5 py-2.5 rounded-xl border border-[var(--border)] text-sm font-medium"
           >
             Manage Lend
           </button>
@@ -197,40 +197,40 @@ export default function Portfolio({ assetId, setPage }: PortfolioProps) {
             onClick={() =>
               toast.message("Interest auto-accrues in supply balance. Withdraw anytime.")
             }
-            className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-xs font-semibold border border-emerald-500/30"
+            className="px-5 py-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 text-sm font-semibold border border-emerald-500/30"
           >
             Claim
           </button>
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="text-sm font-medium">Liquidity pools</div>
+      <div className="space-y-4">
+        <div className="text-base font-medium">Liquidity pools</div>
         {(Object.keys(PAIR_CONFIG) as SwapPair[]).map((p) => (
           <LpRow key={p} pair={p} setPage={setPage} />
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
-        <div className="text-sm font-medium mb-3">Transaction history</div>
+      <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 md:p-7">
+        <div className="text-base font-medium mb-4">Transaction history</div>
         {history.length === 0 ? (
-          <p className="text-xs text-[var(--text-muted)]">No transactions yet on this device.</p>
+          <p className="text-sm text-[var(--text-muted)]">No transactions yet on this device.</p>
         ) : (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
+          <div className="space-y-3 max-h-80 overflow-y-auto">
             {history.map((tx) => (
               <div
                 key={tx.hash + tx.time}
-                className="flex justify-between gap-3 text-sm py-2 border-b border-[var(--border)] last:border-0"
+                className="flex justify-between gap-4 text-sm py-3 border-b border-[var(--border)] last:border-0"
               >
                 <div className="min-w-0">
                   <div className="font-medium text-[var(--text)]">{tx.type}</div>
-                  <div className="text-xs text-[var(--text-muted)] truncate">{tx.detail}</div>
+                  <div className="text-sm text-[var(--text-muted)] truncate">{tx.detail}</div>
                 </div>
                 <a
                   href={`https://testnet.arcscan.app/tx/${tx.hash}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-blue-400 shrink-0"
+                  className="text-sm text-blue-400 shrink-0"
                 >
                   {tx.hash.slice(0, 8)}…
                 </a>

@@ -23,59 +23,35 @@ export default function App() {
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <Toaster position="top-right" theme="system" />
       <Header onOpenProfile={() => setPage("profile")} />
-      <Navbar page={page} setPage={setPage} assetId={assetId} setAssetId={setAssetId} />
+      <Navbar page={page} setPage={setPage} />
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-6 w-full">
         {page === "dashboard" && (
-          <div className="panel-wide">
-            <Dashboard assetId={assetId} setPage={setPage} setLendTab={setLendTab} />
-          </div>
+          <Dashboard
+            assetId={assetId}
+            setAssetId={setAssetId}
+            setPage={setPage}
+            setLendTab={setLendTab}
+          />
         )}
         {page === "lend" && (
-          <div className="panel-wide">
-            <LendPanel assetId={assetId} lendTab={lendTab} setLendTab={setLendTab} />
-          </div>
+          <LendPanel
+            assetId={assetId}
+            setAssetId={setAssetId}
+            lendTab={lendTab}
+            setLendTab={setLendTab}
+          />
         )}
-        {page === "swap" && (
-          <div className="panel-form">
-            <SwapPanel />
-          </div>
-        )}
-        {page === "liquidity" && (
-          <div className="panel-wide">
-            <LiquidityPanel />
-          </div>
-        )}
+        {page === "swap" && <SwapPanel />}
+        {page === "liquidity" && <LiquidityPanel />}
         {page === "portfolio" && (
-          <div className="panel-wide">
-            <Portfolio assetId={assetId} setPage={setPage} />
-          </div>
+          <Portfolio assetId={assetId} setPage={setPage} />
         )}
-        {page === "payments" && (
-          <div className="panel-form">
-            <SendPanel />
-          </div>
-        )}
-        {page === "bridge" && (
-          <div className="panel-form">
-            <BridgePanel />
-          </div>
-        )}
-        {page === "profile" && (
-          <div className="panel-form">
-            <Profile setPage={setPage} />
-          </div>
-        )}
-        {page === "guide" && (
-          <div className="panel-wide">
-            <Guide />
-          </div>
-        )}
-        {page === "treasury" && (
-          <div className="panel-form">
-            <Treasury />
-          </div>
-        )}
+        {page === "payments" && <SendPanel />}
+        {page === "bridge" && <BridgePanel />}
+        {page === "profile" && <Profile setPage={setPage} />}
+        {page === "guide" && <Guide />}
+        {page === "treasury" && <Treasury />}
       </main>
 
       <footer className="mt-12 py-6 border-t border-[var(--border)] text-center text-xs text-[var(--text-muted)]">

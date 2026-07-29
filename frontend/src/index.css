@@ -45,7 +45,6 @@ html.light nav {
   border-color: var(--border) !important;
 }
 
-/* Select — emerald → cyan, white text */
 .field-select,
 select.field-select {
   background: linear-gradient(90deg, #10b981, #06b6d4) !important;
@@ -61,7 +60,6 @@ select.field-select {
   font-weight: 600;
 }
 
-/* Amount input — normal */
 .field-input {
   background-color: #0b1220 !important;
   color: #ffffff !important;
@@ -75,12 +73,15 @@ select.field-select {
 }
 
 html.light .field-input {
-  background-color: #f1f5f9 !important;
+  background-color: #ffffff !important;
   color: #0f172a !important;
   border: 1px solid #1e3a5f !important;
 }
 
-/* Percent buttons — emerald → cyan, white text */
+html.light .field-input::placeholder {
+  color: #94a3b8 !important;
+}
+
 .pct-btn {
   background: linear-gradient(90deg, #10b981, #06b6d4) !important;
   color: #ffffff !important;
@@ -94,7 +95,6 @@ html.light .field-input {
   filter: brightness(1.08);
 }
 
-/* Action buttons — orange */
 .btn-action {
   background: linear-gradient(90deg, #f97316, #ea580c) !important;
   color: #ffffff !important;
@@ -110,6 +110,7 @@ html.light .field-input {
 .btn-action:disabled {
   opacity: 0.4;
 }
+
 .panel-form {
   max-width: 30rem;
   margin-left: auto;

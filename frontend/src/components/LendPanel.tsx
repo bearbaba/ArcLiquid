@@ -50,11 +50,12 @@ const erc20Abi = [
 
 interface LendPanelProps {
   assetId: AssetId
+  setAssetId: (id: AssetId) => void
   lendTab: LendTab
   setLendTab: (tab: LendTab) => void
 }
 
-export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelProps) {
+export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: LendPanelProps) {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const [amount, setAmount] = useState("")
@@ -160,8 +161,8 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
     healthNum >= 1.5 ? "text-emerald-400" : healthNum >= 1.1 ? "text-yellow-400" : "text-red-400"
 
   return (
-    <div className="grid lg:grid-cols-5 gap-6">
-      <div className="lg:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4">
+    <div className="grid lg:grid-cols-5 gap-5">
+      <div className="lg:col-span-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
         <div className="flex justify-between text-sm text-[var(--text-muted)]">
           <span>Position · {asset.symbol}</span>
           <button
@@ -172,6 +173,7 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
               refetchAllowance()
               toast.success("Refreshed")
             }}
+            className="p-1 rounded-lg hover:bg-white/5"
           >
             <RefreshCw size={14} />
           </button>
@@ -179,13 +181,13 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
         <div className="flex justify-between">
           <div>
             <div className="text-xs text-[var(--text-muted)]">Supplied</div>
-            <div className="text-xl font-semibold text-emerald-400">
+            <div className="text-lg font-semibold text-emerald-400 mt-0.5">
               {formatAmt(userSupply, asset.decimals)}
             </div>
           </div>
           <div className="text-right">
             <div className="text-xs text-[var(--text-muted)]">Borrowed</div>
-            <div className="text-xl font-semibold text-orange-400">
+            <div className="text-lg font-semibold text-orange-400 mt-0.5">
               {formatAmt(userDebt, asset.decimals)}
             </div>
           </div>
@@ -201,15 +203,36 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
             }
           }}
           disabled={!isConnected || screening}
-          className="w-full py-3 rounded-xl border border-[var(--border)] text-cyan-400 text-sm"
+          className="w-full py-2.5 rounded-xl border border-[var(--border)] text-cyan-400 text-xs font-medium"
         >
-          <Shield size={14} className="inline mr-1" />
+          <Shield size={13} className="inline mr-1.5" />
           {screening ? "..." : "Screen Wallet"}
         </button>
       </div>
 
-      <div className="lg:col-span-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6">
-        <div className="flex p-1 bg-[var(--bg-elevated)] rounded-xl mb-4 border border-[var(--border)]">
+      <div className="lg:col-span-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
+        <div className="flex gap-1.5 mb-3">
+          {(["USDC", "EURC", "CIRBTC"] as AssetId[]).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setAssetId(id)
+                setAmount("")
+                reset()
+              }}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                assetId === id
+                  ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-black"
+                  : "border border-[var(--border)] text-[var(--text-muted)]"
+              }`}
+            >
+              {ASSETS[id].symbol}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex p-0.5 bg-[var(--bg-elevated)] rounded-lg mb-3 border border-[var(--border)]">
           {(["supply", "withdraw", "borrow", "repay"] as LendTab[]).map((t) => (
             <button
               key={t}
@@ -218,7 +241,7 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
                 setAmount("")
                 reset()
               }}
-              className={`flex-1 py-2 text-sm capitalize rounded-lg ${
+              className={`flex-1 py-1.5 text-xs capitalize rounded-md font-medium ${
                 lendTab === t ? "bg-white text-black" : "text-[var(--text-muted)]"
               }`}
             >
@@ -227,7 +250,7 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
           ))}
         </div>
 
-        <div className="mb-2 text-xs text-[var(--text-muted)]">
+        <div className="mb-1.5 text-[11px] text-[var(--text-muted)]">
           {lendTab === "supply" &&
             `Wallet balance: ${formatAmt(tokenBal, asset.decimals)} ${asset.symbol}`}
           {lendTab === "withdraw" &&
@@ -238,14 +261,14 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
             `Debt to repay: ${formatAmt(userDebt, asset.decimals)} ${asset.symbol}`}
         </div>
 
-        <div className="flex justify-end mb-2">
-          <div className="flex gap-1 w-1/4 min-w-[140px]">
+        <div className="flex justify-end mb-1.5">
+          <div className="flex gap-1">
             {[25, 50, 75, 100].map((pct) => (
               <button
                 key={pct}
                 type="button"
                 onClick={() => setPercent(pct)}
-                className="pct-btn flex-1 py-1 text-[10px]"
+                className="pct-btn px-2.5 py-1 text-xs"
               >
                 {pct === 100 ? "MAX" : `${pct}%`}
               </button>
@@ -258,14 +281,14 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
           value={amount}
           onChange={(e) => setAmount(e.target.value.replace(",", "."))}
           placeholder="0.00"
-          className="field-input w-full px-5 py-4 text-3xl outline-none mb-4"
+          className="field-input w-full px-3 py-2 text-xl outline-none mb-3 font-semibold"
         />
 
         {needApprove && !!amount && !isApproved && (
           <button
             onClick={approve}
             disabled={isPending || isConfirming}
-            className="btn-action w-full py-4 disabled:opacity-40"
+            className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40"
           >
             {isPending || isConfirming ? "Confirming..." : `Approve ${asset.symbol}`}
           </button>
@@ -275,7 +298,7 @@ export default function LendPanel({ assetId, lendTab, setLendTab }: LendPanelPro
           <button
             onClick={execute}
             disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !poolLive}
-            className="btn-action w-full py-4 disabled:opacity-40"
+            className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40"
           >
             {isPending || isConfirming ? "Confirming..." : `${lendTab} ${asset.symbol}`}
           </button>

@@ -20,10 +20,10 @@ export default function Treasury() {
   })
 
   return (
-    <div className="max-w-2xl rounded-2xl border border-white/5 bg-white/[0.03] p-6 space-y-3">
-      <div className="text-sm font-medium text-zinc-400">Treasury</div>
-      <div className="text-xs font-mono break-all text-zinc-500">{TREASURY}</div>
-      <div className="text-2xl font-semibold">
+    <div className="max-w-xl mx-auto rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-7 md:p-8 space-y-4">
+      <div className="text-base font-medium text-[var(--text-muted)]">Treasury</div>
+      <div className="text-sm font-mono break-all text-[var(--text-muted)]">{TREASURY}</div>
+      <div className="text-4xl font-semibold text-[var(--text)] tracking-tight">
         {formatAmt(treasuryUsdc, 6)} USDC
       </div>
     </div>

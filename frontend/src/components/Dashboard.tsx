@@ -15,11 +15,12 @@ import { usePoolData } from "../hooks/usePoolData"
 
 interface DashboardProps {
   assetId: AssetId
+  setAssetId: (id: AssetId) => void
   setPage: (page: NavPage) => void
   setLendTab: (tab: LendTab) => void
 }
 
-export default function Dashboard({ assetId, setPage, setLendTab }: DashboardProps) {
+export default function Dashboard({ assetId, setAssetId, setPage, setLendTab }: DashboardProps) {
   const {
     poolLive,
     totalSupply,
@@ -60,24 +61,49 @@ export default function Dashboard({ assetId, setPage, setLendTab }: DashboardPro
   }
 
   const showHfWarning = healthNum < 1.5 && healthValue !== "∞"
+  const showUtilWarning = utilNumber > 0.8
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex gap-1.5">
+          {(["USDC", "EURC", "CIRBTC"] as AssetId[]).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setAssetId(id)}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                assetId === id
+                  ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-black"
+                  : "border border-[var(--border)] text-[var(--text-muted)]"
+              }`}
+            >
+              {ASSETS[id].symbol}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-[var(--text-muted)]">
+          Viewing · <span className="text-[var(--text)] font-medium">{asset.symbol}</span>
+        </div>
+      </div>
+
       {showHfWarning && (
         <div
-          className={`mb-2 p-4 rounded-xl border text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+          className={`p-4 rounded-2xl border text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
             healthNum < 1.1
               ? "bg-red-500/10 border-red-500/30 text-red-200"
               : "bg-amber-500/10 border-amber-500/30 text-amber-200"
           }`}
         >
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-2.5">
             <AlertTriangle size={18} className="shrink-0 mt-0.5" />
             <div>
               <div className="font-medium">
                 {healthNum < 1.1 ? "High liquidation risk" : "Health factor needs attention"}
               </div>
-              <div className="text-xs opacity-80 mt-0.5">HF {healthValue}</div>
+              <div className="text-xs opacity-80 mt-0.5">
+                HF {healthValue} · {asset.symbol}
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
@@ -87,7 +113,7 @@ export default function Dashboard({ assetId, setPage, setLendTab }: DashboardPro
                 setPage("lend")
                 setLendTab("repay")
               }}
-              className="px-3 py-2 rounded-lg bg-white/10 text-xs font-semibold"
+              className="px-3 py-1.5 rounded-lg bg-white/10 text-xs font-semibold"
             >
               Repay
             </button>
@@ -97,10 +123,22 @@ export default function Dashboard({ assetId, setPage, setLendTab }: DashboardPro
                 setPage("lend")
                 setLendTab("supply")
               }}
-              className="px-3 py-2 rounded-lg bg-white/10 text-xs font-semibold"
+              className="px-3 py-1.5 rounded-lg bg-white/10 text-xs font-semibold"
             >
               Add collateral
             </button>
+          </div>
+        </div>
+      )}
+
+      {showUtilWarning && (
+        <div className="p-4 rounded-2xl border border-orange-500/30 bg-orange-500/10 text-orange-200 text-sm flex items-start gap-2.5">
+          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium">High utilization</div>
+            <div className="text-xs opacity-80 mt-0.5">
+              {formatUtil(util ?? 0n)} of {asset.symbol} pool is borrowed — borrow APY is elevated
+            </div>
           </div>
         </div>
       )}
@@ -110,51 +148,53 @@ export default function Dashboard({ assetId, setPage, setLendTab }: DashboardPro
           {
             label: "Total Supplied",
             value: poolLive ? formatAmt(totalSupply, asset.decimals) : "—",
-            icon: <TrendingUp size={16} className="text-emerald-400" />,
+            icon: <TrendingUp size={15} className="text-emerald-400" />,
           },
           {
             label: "Total Borrowed",
             value: poolLive ? formatAmt(totalDebt, asset.decimals) : "—",
-            icon: <TrendingDown size={16} className="text-orange-400" />,
+            icon: <TrendingDown size={15} className="text-orange-400" />,
           },
           {
             label: "Utilization",
             value: poolLive ? formatUtil(util ?? 0n) : "—",
-            icon: <Activity size={16} className={getUtilColor()} />,
+            icon: <Activity size={15} className={getUtilColor()} />,
           },
           {
             label: "APY S/B",
             value: poolLive ? `${formatApy(supplyApy)} / ${formatApy(borrowApy)}` : "—",
-            icon: <Percent size={16} className="text-cyan-400" />,
+            icon: <Percent size={15} className="text-cyan-400" />,
           },
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 min-h-[96px] flex flex-col justify-between"
           >
-            <div className="flex justify-between text-xs text-[var(--text-muted)]">
-              {s.label}
+            <div className="flex justify-between items-center text-xs text-[var(--text-muted)]">
+              <span>{s.label}</span>
               {s.icon}
             </div>
-            <div className="text-2xl font-semibold mt-1 text-[var(--text)]">{s.value}</div>
+            <div className="text-2xl font-semibold tracking-tight text-[var(--text)]">
+              {s.value}
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 min-h-[96px] flex flex-col justify-between">
           <div className="text-xs text-[var(--text-muted)]">Health</div>
           <div className={`text-3xl font-semibold ${getHealthColor()}`}>
             {poolLive ? healthValue : "—"}
           </div>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 min-h-[96px] flex flex-col justify-between">
           <div className="text-xs text-[var(--text-muted)]">Supplied</div>
           <div className="text-3xl font-semibold text-emerald-400">
             {poolLive ? formatAmt(userSupply, asset.decimals) : "—"}
           </div>
         </div>
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 min-h-[96px] flex flex-col justify-between">
           <div className="text-xs text-[var(--text-muted)]">Borrowed</div>
           <div className="text-3xl font-semibold text-orange-400">
             {poolLive ? formatAmt(userDebt, asset.decimals) : "—"}
@@ -162,46 +202,48 @@ export default function Dashboard({ assetId, setPage, setLendTab }: DashboardPro
         </div>
       </div>
 
-      {/* Liquidity pools */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3">
-        <div className="text-sm font-medium text-[var(--text)]">Liquidity pools</div>
-        {(Object.keys(PAIR_CONFIG) as SwapPair[]).map((p) => (
-          <div
-            key={p}
-            className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
-          >
-            <div>
-              <div className="font-semibold text-[var(--text)]">{p}</div>
-              <div className="text-xs text-emerald-400">Fee APR ~2–8% (volume dependent)</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setPage("liquidity")}
-              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-black text-xs font-semibold"
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
+        <div className="text-sm font-medium text-[var(--text)] mb-4">Liquidity pools</div>
+        <div className="space-y-3">
+          {(Object.keys(PAIR_CONFIG) as SwapPair[]).map((p) => (
+            <div
+              key={p}
+              className="flex items-center justify-between py-2.5 border-b border-[var(--border)] last:border-0"
             >
-              Add
-            </button>
-          </div>
-        ))}
+              <div>
+                <div className="font-medium text-[var(--text)]">{p}</div>
+                <div className="text-xs text-emerald-400 mt-0.5">
+                  Fee APR ~2–8% (volume dependent)
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPage("liquidity")}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-black text-sm font-semibold"
+              >
+                Add
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Quick modules */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { id: "lend" as const, label: "Lend", desc: "Supply · Borrow · Repay" },
-          { id: "portfolio" as const, label: "Portfolio", desc: "Positions & history" },
-          { id: "swap" as const, label: "Swap", desc: "Trade stables" },
-          { id: "liquidity" as const, label: "Liquidity", desc: "Earn pool fees" },
-          { id: "bridge" as const, label: "Bridge", desc: "CCTP USDC" },
-          { id: "payments" as const, label: "Payments", desc: "Send tokens" },
+          { id: "lend" as NavPage, label: "Lend", desc: "Supply · Borrow" },
+          { id: "swap" as NavPage, label: "Swap", desc: "Trade stables" },
+          { id: "portfolio" as NavPage, label: "Portfolio", desc: "Positions" },
+          { id: "payments" as NavPage, label: "Payments", desc: "Send tokens" },
+          { id: "bridge" as NavPage, label: "Bridge", desc: "CCTP USDC" },
+          { id: "profile" as NavPage, label: "Profile", desc: "Points & missions" },
         ].map((m) => (
           <button
             key={m.id}
             type="button"
             onClick={() => setPage(m.id)}
-            className="text-left rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 hover:border-blue-500/50 transition"
+            className="text-left rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 hover:border-emerald-500/40 transition"
           >
-            <div className="font-semibold text-[var(--text)]">{m.label}</div>
+            <div className="font-semibold text-sm text-[var(--text)]">{m.label}</div>
             <div className="text-xs text-[var(--text-muted)] mt-1">{m.desc}</div>
           </button>
         ))}

@@ -13,49 +13,47 @@ export default function Header({ onOpenProfile }: HeaderProps) {
   const name = typeof window !== "undefined" ? getDisplayName() : ""
 
   return (
-    <header className="border-b border-[var(--border)] bg-[var(--bg-elevated)]">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="font-bold text-lg text-[var(--text)] shrink-0">Flowlend</div>
-          {name ? (
-            <button
-              type="button"
-              onClick={onOpenProfile}
-              className="text-sm text-[var(--text-muted)] truncate hover:text-[var(--text)]"
-            >
-              {name}
-            </button>
-          ) : null}
+    <header className="border-b border-[var(--border)] bg-[var(--bg)]">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-black font-bold text-sm">
+            F
+          </div>
+          <div>
+            <div className="font-semibold text-[var(--text)] leading-tight">Flowlend</div>
+            <div className="text-[10px] text-[var(--text-muted)] leading-tight">
+              {name || "Bear Crypto"}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2">
           <a
             href="https://faucet.circle.com"
             target="_blank"
             rel="noreferrer"
-            className="px-2.5 py-1.5 rounded-lg border border-emerald-500/40 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/10"
+            className="px-3 py-1.5 rounded-lg border border-emerald-500/40 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/10"
           >
             Faucet
           </a>
           <button
             type="button"
             onClick={onOpenProfile}
-            className="px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-emerald-400"
+            className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold text-emerald-400"
           >
             {points} pts
           </button>
           <button
             type="button"
             onClick={toggle}
-            className="p-2 rounded-lg border border-[var(--border)] text-[var(--text-muted)]"
+            className="w-9 h-9 rounded-lg border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)]"
             aria-label="Toggle theme"
           >
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <ConnectButton
-            label="Connect Wallet"
             showBalance={false}
-            chainStatus="icon"
+            chainStatus="none"
             accountStatus="address"
           />
         </div>
