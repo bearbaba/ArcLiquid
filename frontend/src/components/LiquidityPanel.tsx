@@ -191,12 +191,6 @@ export default function LiquidityPanel() {
     onAmount0Change(v.toString())
   }
 
-  const setPct1 = (pct: number) => {
-    if (!token1Bal) return
-    const v = (Number(token1Bal) * pct) / 100 / 10 ** token1.decimals
-    setLiqAmount1(v.toString())
-  }
-
   const setPctRemove = (pct: number) => {
     if (!userShares || reserve0 === 0n || !totalShares || totalShares === 0n) return
     const maxAmt = (userShares * reserve0) / totalShares

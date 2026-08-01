@@ -268,18 +268,6 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     return void handleSupplyOrRepay()
   }
 
-  const openLend = (tab: LendTab) => {
-    setAssetId?.("USDC")
-    setLendTab?.(tab)
-    setPage?.("lend")
-  }
-
-  const goLend = (tab: LendTab = "supply") => {
-    setAssetId?.("USDC")
-    setLendTab?.(tab)
-    setPage?.("lend")
-  }
-
   const busy = loading || isPending || isConfirming
   const primaryLabel =
     mode === "deposit"

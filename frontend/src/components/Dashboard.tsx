@@ -12,7 +12,6 @@ import {
   type LendTab,
 } from "../lib/assets"
 import { usePoolData } from "../hooks/usePoolData"
-import { formatFeeAprLabel } from "../hooks/usePoolFeeApr"
 
 interface DashboardProps {
   assetId: AssetId
