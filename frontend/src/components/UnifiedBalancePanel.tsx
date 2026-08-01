@@ -76,6 +76,12 @@ interface Props {
 }
 
 export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }: Props) {
+  const goLend = (tab: LendTab) => {
+    setAssetId?.("USDC")
+    setLendTab?.(tab)
+    setPage?.("lend")
+  }
+
   const { address, isConnected } = useAccount()
   const [mode, setMode] = useState<Mode>("deposit")
   const [amount, setAmount] = useState("")
