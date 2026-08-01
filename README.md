@@ -106,26 +106,17 @@ npm install
 npm run dev
 ---
 
+---
+
 ## License
 
-MIT License
+Copyright (c) 2026 Flowlend.
 
-Copyright (c) 2026 Flowlend
+You may use, study, and build upon this project under these conditions:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. **Fork required** — any reuse or redistribution must be based on a public fork of this repository (https://github.com/bearbaba/ArcLiquid).
+2. **Attribution** — you must clearly credit **Flowlend** (name and link to this repo) in your README and UI where the project is presented.
+3. **No implied endorsement** — Flowlend is not responsible for forks or derived works.
+4. **Testnet / demo only** — provided as-is for hackathon and evaluation; no warranty.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Commercial production use requires prior written permission from the author.
