@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useAccount, useReadContract, useChainId } from "wagmi"
+import { createPublicClient, http, formatUnits } from "viem"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 import { getAppKit } from "../lib/circleAppKit"
 import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
@@ -17,6 +18,19 @@ const CHAINS: { id: ChainId; label: string }[] = [
 
 const ARC_CHAIN_ID = 5042002
 
+// USDC addresses on each testnet
+const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
+  Arc_Testnet: ASSETS.USDC.address,
+  Ethereum_Sepolia: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  Base_Sepolia: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+}
+
+const RPC_BY_CHAIN: Record<ChainId, string> = {
+  Arc_Testnet: "https://rpc.quicknode.testnet.arc.network",
+  Ethereum_Sepolia: "https://rpc.sepolia.org",
+  Base_Sepolia: "https://sepolia.base.org",
+}
+
 const erc20Abi = [
   {
     name: "balanceOf",
@@ -27,6 +41,24 @@ const erc20Abi = [
   },
 ] as const
 
+async function fetchUsdcBalance(chain: ChainId, address: `0x${string}`) {
+  try {
+    const client = createPublicClient({
+      transport: http(RPC_BY_CHAIN[chain], { timeout: 10_000 }),
+    })
+    const bal = await client.readContract({
+      address: USDC_BY_CHAIN[chain],
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [address],
+    })
+    // Arc USDC in assets is 6 decimals; Sepolia/Base Circle USDC is usually 6
+    return formatUnits(bal as bigint, 6)
+  } catch {
+    return null
+  }
+}
+
 export default function BridgePanel() {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
@@ -35,20 +67,58 @@ export default function BridgePanel() {
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
+  const [balances, setBalances] = useState<Record<ChainId, string | null>>({
+    Arc_Testnet: null,
+    Ethereum_Sepolia: null,
+    Base_Sepolia: null,
+  })
+  const [refreshing, setRefreshing] = useState(false)
 
-  const { data: usdcBal, refetch: refetchBal } = useReadContract({
+  // Arc balance via wagmi (nhanh khi đang ở Arc)
+  const { data: arcBal, refetch: refetchArcBal } = useReadContract({
     address: ASSETS.USDC.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address && (fromChain === "Arc_Testnet" || chainId === ARC_CHAIN_ID),
+      enabled: !!address,
     },
   })
 
+  const refreshAllBalances = useCallback(async () => {
+    if (!address) return
+    setRefreshing(true)
+    try {
+      const [arc, eth, base] = await Promise.all([
+        fetchUsdcBalance("Arc_Testnet", address),
+        fetchUsdcBalance("Ethereum_Sepolia", address),
+        fetchUsdcBalance("Base_Sepolia", address),
+      ])
+      setBalances({
+        Arc_Testnet: arc,
+        Ethereum_Sepolia: eth,
+        Base_Sepolia: base,
+      })
+      void refetchArcBal()
+    } finally {
+      setRefreshing(false)
+    }
+  }, [address, refetchArcBal])
+
+  useEffect(() => {
+    if (isConnected && address) void refreshAllBalances()
+  }, [isConnected, address, refreshAllBalances])
+
+  // Ưu tiên số từ multi-fetch, fallback wagmi Arc
+  const fromBalance =
+    balances[fromChain] ??
+    (fromChain === "Arc_Testnet" && arcBal !== undefined
+      ? formatUnits(arcBal as bigint, ASSETS.USDC.decimals)
+      : null)
+
   const setPercent = (pct: number) => {
-    if (usdcBal === undefined) return
-    const v = (Number(usdcBal) * pct) / 100 / 10 ** ASSETS.USDC.decimals
+    if (!fromBalance) return
+    const v = (Number(fromBalance) * pct) / 100
     setAmount(v.toFixed(6))
   }
 
@@ -81,7 +151,9 @@ export default function BridgePanel() {
       toast.success("Bridge submitted")
       addPoints(REWARDS.bridge)
       setAmount("")
-      setTimeout(() => refetchBal(), 2500)
+      // Cập nhật số dư ngay + thêm lần nữa sau vài giây
+      void refreshAllBalances()
+      setTimeout(() => void refreshAllBalances(), 3000)
     } catch (err: any) {
       console.error(err)
       toast.error(err?.message || "Bridge failed")
@@ -91,9 +163,35 @@ export default function BridgePanel() {
   }
 
   return (
-    <div className="grid lg:grid-cols-2 gap-5">
-    {/* BRIDGE_TWO_COL_V1 */}
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
+      {/* Balances 3 mạng */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-[var(--text)]">USDC Balances</div>
+          <button
+            type="button"
+            onClick={() => void refreshAllBalances()}
+            disabled={refreshing || !isConnected}
+            className="p-1.5 rounded-lg text-[var(--text-muted)] disabled:opacity-40"
+            aria-label="Refresh balances"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+          </button>
+        </div>
+        {CHAINS.map((c) => (
+          <div key={c.id} className="flex justify-between text-xs">
+            <span className="text-[var(--text-muted)]">{c.label}</span>
+            <span className="text-[var(--text)] font-medium">
+              {balances[c.id] !== null && balances[c.id] !== undefined
+                ? `${Number(balances[c.id]).toFixed(4)} USDC`
+                : isConnected
+                  ? "—"
+                  : "Connect wallet"}
+            </span>
+          </div>
+        ))}
+      </div>
+
       <div>
         <div className="text-xs text-[var(--text-muted)] mb-1.5">From</div>
         <select
@@ -140,9 +238,9 @@ export default function BridgePanel() {
       <div>
         <div className="flex justify-between text-xs text-[var(--text-muted)] mb-1.5">
           <span>Amount (USDC)</span>
-          {fromChain === "Arc_Testnet" && isConnected && (
+          {isConnected && (
             <span className="text-[var(--text)]">
-              Bal: {formatAmt(usdcBal, ASSETS.USDC.decimals)} USDC
+              Bal: {fromBalance !== null ? Number(fromBalance).toFixed(4) : "—"} USDC
             </span>
           )}
         </div>
@@ -154,22 +252,20 @@ export default function BridgePanel() {
           placeholder="0.00"
           className="field-input w-full px-3 py-2 text-xl outline-none font-semibold"
         />
-        {fromChain === "Arc_Testnet" && (
-          <div className="flex justify-end mt-1.5">
-            <div className="flex gap-1">
-              {[25, 50, 75, 100].map((pct) => (
-                <button
-                  key={pct}
-                  type="button"
-                  onClick={() => setPercent(pct)}
-                  className="pct-btn px-2 py-0.5 text-[10px]"
-                >
-                  {pct === 100 ? "MAX" : `${pct}%`}
-                </button>
-              ))}
-            </div>
+        <div className="flex justify-end mt-1.5">
+          <div className="flex gap-1">
+            {[25, 50, 75, 100].map((pct) => (
+              <button
+                key={pct}
+                type="button"
+                onClick={() => setPercent(pct)}
+                className="pct-btn px-2 py-0.5 text-[10px]"
+              >
+                {pct === 100 ? "MAX" : `${pct}%`}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
       <button
@@ -189,29 +285,6 @@ export default function BridgePanel() {
       </button>
 
       <TxStatus hash={txHash} />
-    </div>
-
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3 text-sm">
-      <div className="font-medium text-[var(--text)]">Bridge</div>
-      <div className="flex justify-between text-[var(--text-muted)]">
-        <span>Asset</span>
-        <span className="text-[var(--text)]">USDC</span>
-      </div>
-      <div className="flex justify-between text-[var(--text-muted)]">
-        <span>Protocol</span>
-        <span className="text-[var(--text)]">Circle App Kit · CCTP</span>
-      </div>
-      <div className="flex justify-between text-[var(--text-muted)]">
-        <span>Supported</span>
-        <span className="text-[var(--text)] text-right text-xs">
-          Arc · Ethereum Sepolia · Base Sepolia
-        </span>
-      </div>
-      <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
-        Cross-chain USDC transfers via Circle. Confirm the source network in your
-        wallet when prompted.
-      </p>
-    </div>
     </div>
   )
 }
