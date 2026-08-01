@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react"
-import { useAccount, useReadContract, useChainId } from "wagmi"
+import { useAccount, useReadContract } from "wagmi"
 import { createPublicClient, http, formatUnits } from "viem"
 import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { getAppKit } from "../lib/circleAppKit"
 import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
-import { ASSETS, formatAmt } from "../lib/assets"
+import { ASSETS } from "../lib/assets"
 
 type ChainId = "Arc_Testnet" | "Ethereum_Sepolia" | "Base_Sepolia"
 
@@ -16,7 +16,6 @@ const CHAINS: { id: ChainId; label: string }[] = [
   { id: "Base_Sepolia", label: "Base Sepolia" },
 ]
 
-const ARC_CHAIN_ID = 5042002
 
 // USDC addresses on each testnet
 const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
@@ -61,7 +60,6 @@ async function fetchUsdcBalance(chain: ChainId, address: `0x${string}`) {
 
 export default function BridgePanel() {
   const { address, isConnected } = useAccount()
-  const chainId = useChainId()
   const [fromChain, setFromChain] = useState<ChainId>("Arc_Testnet")
   const [toChain, setToChain] = useState<ChainId>("Ethereum_Sepolia")
   const [amount, setAmount] = useState("")
