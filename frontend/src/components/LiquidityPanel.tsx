@@ -151,6 +151,15 @@ export default function LiquidityPanel() {
     }
   }, [removeAmount0, reserve0, totalShares, token0.decimals, userShares])
 
+  const yourAmt0 =
+    totalShares && totalShares > 0n && userShares
+      ? (userShares * reserve0) / totalShares
+      : 0n
+  const yourAmt1 =
+    totalShares && totalShares > 0n && userShares
+      ? (userShares * reserve1) / totalShares
+      : 0n
+
   const estimatedReceive0 =
     totalShares && totalShares > 0n && removeSharesBn > 0n
       ? (removeSharesBn * reserve0) / totalShares
@@ -160,10 +169,26 @@ export default function LiquidityPanel() {
       ? (removeSharesBn * reserve1) / totalShares
       : 0n
 
+  // AUTO_RATIO_V1
+  const onAmount0Change = (raw: string) => {
+    setLiqAmount0(raw)
+    if (!raw || reserve0 === 0n || reserve1 === 0n) {
+      setLiqAmount1("")
+      return
+    }
+    try {
+      const a0 = parseUnits(raw.replace(",", "."), token0.decimals)
+      const a1 = (a0 * reserve1) / reserve0
+      setLiqAmount1((Number(a1) / 10 ** token1.decimals).toFixed(Math.min(6, token1.decimals)))
+    } catch {
+      setLiqAmount1("")
+    }
+  }
+
   const setPct0 = (pct: number) => {
     if (!token0Bal) return
     const v = (Number(token0Bal) * pct) / 100 / 10 ** token0.decimals
-    setLiqAmount0(v.toString())
+    onAmount0Change(v.toString())
   }
 
   const setPct1 = (pct: number) => {
@@ -282,8 +307,14 @@ export default function LiquidityPanel() {
           <span>Your share</span>
           <span className="text-emerald-400 font-semibold">{formatSharePct(sharePct)}</span>
         </div>
+        <div className="flex justify-between text-[var(--text-muted)]">
+          <span>Swap fee</span>
+          <span className="text-[var(--text)]">0.04% · 75% LP / 25% Protocol</span>
+        </div>
       </div>
 
+      {/* POOLS_TWO_COL_V1 */}
+      <div className="grid lg:grid-cols-2 gap-5">
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
         <div className="flex p-0.5 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border)]">
           <button
@@ -315,7 +346,7 @@ export default function LiquidityPanel() {
             <input
               type="number"
               value={liqAmount0}
-              onChange={(e) => setLiqAmount0(e.target.value)}
+              onChange={(e) => onAmount0Change(e.target.value)}
               placeholder={`0.00 ${token0.symbol}`}
               className="field-input w-full px-3 py-2 text-xl outline-none font-semibold"
             />
@@ -345,20 +376,7 @@ export default function LiquidityPanel() {
               placeholder={`0.00 ${token1.symbol}`}
               className="field-input w-full px-3 py-2 text-xl outline-none font-semibold"
             />
-            <div className="flex justify-end -mt-2">
-              <div className="flex gap-1">
-                {[25, 50, 75, 100].map((pct) => (
-                  <button
-                    key={pct}
-                    type="button"
-                    onClick={() => setPct1(pct)}
-                    className="pct-btn px-2.5 py-1 text-xs"
-                  >
-                    {pct === 100 ? "MAX" : `${pct}%`}
-                  </button>
-                ))}
-              </div>
-            </div>
+            
 
             {!!liqAmount0 && !isToken0Approved && (
               <button
@@ -435,6 +453,36 @@ export default function LiquidityPanel() {
         )}
 
         <TxStatus hash={hash} />
+      </div>
+
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3 text-sm">
+        <div className="font-medium text-[var(--text)]">Your position · {swapPair}</div>
+        <div className="flex justify-between text-[var(--text-muted)]">
+          <span>Share</span>
+          <span className="text-emerald-400 font-semibold">{formatSharePct(sharePct)}</span>
+        </div>
+        <div className="flex justify-between text-[var(--text-muted)]">
+          <span>{token0.symbol}</span>
+          <span className="text-[var(--text)] font-semibold">{formatAmt(yourAmt0, token0.decimals)}</span>
+        </div>
+        <div className="flex justify-between text-[var(--text-muted)]">
+          <span>{token1.symbol}</span>
+          <span className="text-[var(--text)] font-semibold">{formatAmt(yourAmt1, token1.decimals)}</span>
+        </div>
+        <div className="flex justify-between text-[var(--text-muted)]">
+          <span>Reserves</span>
+          <span className="text-[var(--text)] text-right text-xs">
+            {formatAmt(reserve0, token0.decimals)} {token0.symbol} · {formatAmt(reserve1, token1.decimals)} {token1.symbol}
+          </span>
+        </div>
+        <div className="flex justify-between text-[var(--text-muted)]">
+          <span>Fee</span>
+          <span className="text-[var(--text)]">0.04% · 75% LP / 25% Protocol</span>
+        </div>
+        <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
+          LP fees accrue in reserves. Your token amounts rise as the pool earns swap fees.
+        </p>
+      </div>
       </div>
     </div>
   )

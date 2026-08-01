@@ -60,7 +60,7 @@ function getAmountOut(amountIn: bigint, reserveIn: bigint, reserveOut: bigint): 
   return (amountInWithFee * reserveOut) / (reserveIn * BPS + amountInWithFee)
 }
 
-export default function SwapPanel() {
+export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const [swapFrom, setSwapFrom] = useState<SwapToken>("USDC")
@@ -192,10 +192,22 @@ export default function SwapPanel() {
     )
   }
 
+  const token1 = ASSETS[currentPair.token1]
+
   return (
+    <div className="grid lg:grid-cols-2 gap-5">
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-[var(--text-muted)]">Swap</div>
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-[var(--text-muted)]">Swap</div>
+          <button
+            type="button"
+            onClick={() => setPage?.("liquidity")}
+            className="text-xs font-semibold text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-lg"
+          >
+            Pools
+          </button>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-muted)]">
             Slippage{" "}
@@ -227,6 +239,26 @@ export default function SwapPanel() {
                 {bps / 100}%
               </button>
             ))}
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[11px] text-[var(--text-muted)]">Custom</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={(slippageBps / 100).toString()}
+              onChange={(e) => {
+                const v = e.target.value.replace(",", ".")
+                const n = Number(v)
+                if (!Number.isFinite(n) || n < 0) return
+                const bps = Math.round(n * 100)
+                if (bps > 5000) return
+                setSlippageBps(bps)
+              }}
+              className="field-input w-20 px-2 py-1 text-xs outline-none"
+            />
+            <span className="text-[11px] text-[var(--text-muted)]">%</span>
+          </div>
+          <div className="hidden">
           </div>
           <div className="flex justify-between text-[11px] text-[var(--text-muted)]">
             <span>Min received</span>
@@ -351,6 +383,50 @@ export default function SwapPanel() {
       )}
 
       <TxStatus hash={hash} />
+    </div>
+
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4 text-sm">
+      <div className="font-medium text-[var(--text)]">Pool · {foundKey}</div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Reserve {token0.symbol}</span>
+        <span className="text-[var(--text)] font-semibold">
+          {formatAmt(reserve0, token0.decimals)}
+        </span>
+      </div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Reserve {token1.symbol}</span>
+        <span className="text-[var(--text)] font-semibold">
+          {formatAmt(reserve1, token1.decimals)}
+        </span>
+      </div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Swap fee</span>
+        <span className="text-[var(--text)] font-semibold">0.04%</span>
+      </div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Fee split</span>
+        <span className="text-[var(--text)] font-semibold">75% LP / 25% Protocol</span>
+      </div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Min received</span>
+        <span className="text-[var(--text)]">
+          {formatAmt(minReceived, ASSETS[swapTo].decimals)} {ASSETS[swapTo].symbol}
+        </span>
+      </div>
+      <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
+        Liquidity providers earn 75% of swap fees.
+      </p>
+      <button
+        type="button"
+        onClick={() => setPage?.("liquidity")}
+        className="w-full py-2.5 rounded-xl border border-emerald-500/50 text-emerald-400 text-sm font-semibold"
+      >
+        {/* SIDE_POOLS_CTA */}
+        Open Pools
+      </button>
+      <p className="hidden">
+      </p>
+    </div>
     </div>
   )
 }

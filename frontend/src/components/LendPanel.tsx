@@ -9,7 +9,7 @@ import {
 import { parseUnits, maxUint256 } from "viem"
 import { toast } from "sonner"
 import { RefreshCw, Shield } from "lucide-react"
-import { ASSETS, formatAmt, formatHealth, type AssetId, type LendTab } from "../lib/assets"
+import { ASSETS, formatAmt, formatHealth, formatApy, formatUtil, type AssetId, type LendTab } from "../lib/assets"
 import { usePoolData } from "../hooks/usePoolData"
 import { useBalances } from "../hooks/useBalances"
 import { addPoints, REWARDS } from "../lib/points"
@@ -62,8 +62,36 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
   const [screening, setScreening] = useState(false)
 
   const asset = ASSETS[assetId]
-  const { poolLive, poolAddr, userSupply, userDebt, health, maxBorrow, refetchAll } =
-    usePoolData(assetId)
+  const {
+    poolLive,
+    poolAddr,
+    userSupply,
+    userDebt,
+    health,
+    maxBorrow,
+    totalSupply,
+    totalDebt,
+    util,
+    baseRate,
+    slope1,
+    slope2,
+    optimalUtil,
+    reserveFactor,
+    refetchAll,
+  } = usePoolData(assetId)
+
+  let borrowApy = 0n
+  let supplyApy = 0n
+  if (baseRate !== undefined && slope1 !== undefined && slope2 !== undefined && optimalUtil !== undefined) {
+    const u = util ?? 0n
+    if (u <= optimalUtil) {
+      borrowApy = baseRate + (slope1 * u) / 10n ** 18n
+    } else {
+      borrowApy = baseRate + slope1 + (slope2 * (u - optimalUtil)) / 10n ** 18n
+    }
+    const rf = reserveFactor ?? 0n
+    supplyApy = (borrowApy * u * (10n ** 18n - rf)) / (10n ** 18n * 10n ** 18n)
+  }
   const { usdcBal, eurcBal, cirbtcBal, refetchAll: refetchBalances } = useBalances()
 
   const tokenBal =
@@ -178,7 +206,7 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
             <RefreshCw size={14} />
           </button>
         </div>
-        <div className="flex justify-between">
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="text-xs text-[var(--text-muted)]">Supplied</div>
             <div className="text-lg font-semibold text-emerald-400 mt-0.5">
@@ -191,8 +219,56 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
               {formatAmt(userDebt, asset.decimals)}
             </div>
           </div>
+          <div>
+            <div className="text-xs text-[var(--text-muted)]">Health</div>
+            <div className={`text-lg font-semibold mt-0.5 ${getHealthColor()}`}>
+              {healthValue}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-[var(--text-muted)]">Max borrow</div>
+            <div className="text-lg font-semibold text-[var(--text)] mt-0.5">
+              {formatAmt(maxBorrow, asset.decimals)}
+            </div>
+          </div>
         </div>
-        <div className={`text-lg font-semibold ${getHealthColor()}`}>HF {healthValue}</div>
+
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-2 text-xs">
+          <div className="flex justify-between text-[var(--text-muted)]">
+            <span>Supply APY</span>
+            <span className="text-emerald-400 font-semibold">
+              {poolLive ? formatApy(supplyApy) : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-[var(--text-muted)]">
+            <span>Borrow APY</span>
+            <span className="text-orange-400 font-semibold">
+              {poolLive ? formatApy(borrowApy) : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-[var(--text-muted)]">
+            <span>Utilization</span>
+            <span className="text-[var(--text)] font-semibold">
+              {poolLive ? formatUtil(util ?? 0n) : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-[var(--text-muted)]">
+            <span>Total supplied</span>
+            <span className="text-[var(--text)]">
+              {poolLive ? formatAmt(totalSupply, asset.decimals) : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-[var(--text-muted)]">
+            <span>Total borrowed</span>
+            <span className="text-[var(--text)]">
+              {poolLive ? formatAmt(totalDebt, asset.decimals) : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between text-[var(--text-muted)] pt-1 border-t border-[var(--border)]">
+            <span>LTV / LT</span>
+            <span className="text-[var(--text)] font-semibold">80% / 85%</span>
+          </div>
+        </div>
         <button
           onClick={async () => {
             setScreening(true)

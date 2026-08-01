@@ -16,8 +16,8 @@ contract LendingPool is ReentrancyGuard, Ownable {
 
     uint256 public constant WAD = 1e18;
     uint256 public constant SECONDS_PER_YEAR = 365 days;
-    uint256 public constant LTV_BPS = 7_500;               // 75.00%
-    uint256 public constant LIQUIDATION_THRESHOLD_BPS = 7_500;
+    uint256 public constant LTV_BPS = 8_000;               // 75.00%
+    uint256 public constant LIQUIDATION_THRESHOLD_BPS = 8_500;
     uint256 public constant LIQUIDATION_BONUS_BPS = 500;  // 5.00%
     uint256 public constant CLOSE_FACTOR_BPS = 5_000;     // 50.00%
     uint256 private constant BPS_DENOMINATOR = 10_000;
@@ -63,6 +63,7 @@ contract LendingPool is ReentrancyGuard, Ownable {
     event ReservesWithdrawn(address indexed to, uint256 amount);
 
     error ZeroAmount();
+    error ExceedsLTV();
     error InsufficientLiquidity();
     error InsufficientCollateral();
     error NotCompliant(address user);
@@ -162,27 +163,30 @@ contract LendingPool is ReentrancyGuard, Ownable {
     }
 
     function borrow(uint256 amount)
-        external
-        nonReentrant
-        accrue
-        onlyCompliant(msg.sender)
-    {
-        if (amount == 0) revert ZeroAmount();
+    external
+    nonReentrant
+    accrue
+    onlyCompliant(msg.sender)
+{
+    if (amount == 0) revert ZeroAmount();
 
-        // liquidity check
-        uint256 available = asset.balanceOf(address(this));
-        if (amount > available) revert InsufficientLiquidity();
+    uint256 available = asset.balanceOf(address(this));
+    if (amount > available) revert InsufficientLiquidity();
 
-        uint256 scaled = (amount * WAD) / borrowIndex;
-        borrowers[msg.sender].scaledDebt += scaled;
-        totalScaledDebt += scaled;
+    uint256 scaled = (amount * WAD) / borrowIndex;
+    borrowers[msg.sender].scaledDebt += scaled;
+    totalScaledDebt += scaled;
 
-        // health factor must remain healthy after borrow
-        if (_healthFactor(msg.sender) < WAD) revert HealthFactorTooLow();
+    uint256 collateralValue = (suppliers[msg.sender].scaledSupply * supplyIndex) / WAD;
+    uint256 debtValue = (borrowers[msg.sender].scaledDebt * borrowIndex) / WAD;
+    uint256 maxDebt = (collateralValue * LTV_BPS) / BPS_DENOMINATOR;
+    if (debtValue > maxDebt) revert ExceedsLTV();
 
-        asset.safeTransfer(msg.sender, amount);
-        emit Borrow(msg.sender, amount);
-    }
+    if (_healthFactor(msg.sender) < WAD) revert HealthFactorTooLow();
+
+    asset.safeTransfer(msg.sender, amount);
+    emit Borrow(msg.sender, amount);
+}
 
     function repay(uint256 amount)
         external

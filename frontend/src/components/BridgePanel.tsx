@@ -91,6 +91,8 @@ export default function BridgePanel() {
   }
 
   return (
+    <div className="grid lg:grid-cols-2 gap-5">
+    {/* BRIDGE_TWO_COL_V1 */}
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
       <div>
         <div className="text-xs text-[var(--text-muted)] mb-1.5">From</div>
@@ -187,6 +189,29 @@ export default function BridgePanel() {
       </button>
 
       <TxStatus hash={txHash} />
+    </div>
+
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3 text-sm">
+      <div className="font-medium text-[var(--text)]">Bridge</div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Asset</span>
+        <span className="text-[var(--text)]">USDC</span>
+      </div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Protocol</span>
+        <span className="text-[var(--text)]">Circle App Kit · CCTP</span>
+      </div>
+      <div className="flex justify-between text-[var(--text-muted)]">
+        <span>Supported</span>
+        <span className="text-[var(--text)] text-right text-xs">
+          Arc · Ethereum Sepolia · Base Sepolia
+        </span>
+      </div>
+      <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
+        Cross-chain USDC transfers via Circle. Confirm the source network in your
+        wallet when prompted.
+      </p>
+    </div>
     </div>
   )
 }

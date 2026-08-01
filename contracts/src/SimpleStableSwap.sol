@@ -17,19 +17,29 @@ contract SimpleStableSwap is ReentrancyGuard, Ownable {
     uint256 public totalShares;
     mapping(address => uint256) public sharesOf;
 
-    uint256 public constant FEE_BPS = 4;
+    uint256 public feeBps = 4;
+    uint256 public protocolFeeShareBps = 2500;
     uint256 public constant BPS = 10_000;
     uint256 public constant MINIMUM_LIQUIDITY = 1000;
+
+    address public treasury;
+    uint256 public protocolFees0;
+    uint256 public protocolFees1;
 
     event LiquidityAdded(address indexed provider, uint256 amount0, uint256 amount1, uint256 shares);
     event LiquidityRemoved(address indexed provider, uint256 amount0, uint256 amount1, uint256 shares);
     event Swap(address indexed user, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut);
+    event FeeUpdated(uint256 feeBps, uint256 protocolFeeShareBps);
+    event TreasuryUpdated(address treasury);
+    event ProtocolFeesWithdrawn(address token, uint256 amount, address to);
 
-    constructor(address _token0, address _token1) Ownable(msg.sender) {
+    constructor(address _token0, address _token1, address _treasury) Ownable(msg.sender) {
         require(_token0 != address(0) && _token1 != address(0), "zero");
         require(_token0 != _token1, "same");
+        require(_treasury != address(0), "treasury=0");
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
+        treasury = _treasury;
     }
 
     function addLiquidity(uint256 amount0, uint256 amount1) external nonReentrant returns (uint256 shares) {
@@ -78,10 +88,10 @@ contract SimpleStableSwap is ReentrancyGuard, Ownable {
         emit LiquidityRemoved(msg.sender, amount0, amount1, sharesToRemove);
     }
 
-    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) public pure returns (uint256) {
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) public view returns (uint256) {
         require(amountIn > 0, "in");
         require(reserveIn > 0 && reserveOut > 0, "liquidity");
-        uint256 amountInWithFee = amountIn * (BPS - FEE_BPS);
+        uint256 amountInWithFee = amountIn * (BPS - feeBps);
         uint256 numerator = amountInWithFee * reserveOut;
         uint256 denominator = reserveIn * BPS + amountInWithFee;
         return numerator / denominator;
@@ -106,18 +116,53 @@ contract SimpleStableSwap is ReentrancyGuard, Ownable {
         amountOut = getAmountOut(amountIn, rin, rout);
         require(amountOut >= minAmountOut, "slippage");
 
+        uint256 totalFee = (amountIn * feeBps) / BPS;
+        uint256 protocolFee = (totalFee * protocolFeeShareBps) / BPS;
+        uint256 amountInToReserve = amountIn - protocolFee;
+
         tin.safeTransferFrom(msg.sender, address(this), amountIn);
         tout.safeTransfer(msg.sender, amountOut);
 
         if (is0) {
-            reserve0 = rin + amountIn;
+            protocolFees0 += protocolFee;
+            reserve0 = rin + amountInToReserve;
             reserve1 = rout - amountOut;
         } else {
-            reserve1 = rin + amountIn;
+            protocolFees1 += protocolFee;
+            reserve1 = rin + amountInToReserve;
             reserve0 = rout - amountOut;
         }
 
         emit Swap(msg.sender, tokenIn, amountIn, address(tout), amountOut);
+    }
+
+    function setFee(uint256 _feeBps, uint256 _protocolFeeShareBps) external onlyOwner {
+        require(_feeBps <= 100, "fee");
+        require(_protocolFeeShareBps <= BPS, "share");
+        feeBps = _feeBps;
+        protocolFeeShareBps = _protocolFeeShareBps;
+        emit FeeUpdated(_feeBps, _protocolFeeShareBps);
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "zero");
+        treasury = _treasury;
+        emit TreasuryUpdated(_treasury);
+    }
+
+    function withdrawProtocolFees(address token, uint256 amount) external onlyOwner {
+        if (token == address(token0)) {
+            require(amount <= protocolFees0, "bal");
+            protocolFees0 -= amount;
+            token0.safeTransfer(treasury, amount);
+        } else if (token == address(token1)) {
+            require(amount <= protocolFees1, "bal");
+            protocolFees1 -= amount;
+            token1.safeTransfer(treasury, amount);
+        } else {
+            revert("token");
+        }
+        emit ProtocolFeesWithdrawn(token, amount, treasury);
     }
 
     function getReserves() external view returns (uint256, uint256) {

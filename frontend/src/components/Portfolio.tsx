@@ -14,7 +14,7 @@ import { usePoolData } from "../hooks/usePoolData"
 import { useBalances } from "../hooks/useBalances"
 import { swapAbi } from "../lib/circleKit"
 import { getTxHistory } from "../lib/txHistory"
-import { toast } from "sonner"
+import { usePoolFeeApr } from "../hooks/usePoolFeeApr"
 
 interface PortfolioProps {
   assetId: AssetId
@@ -55,6 +55,7 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
     functionName: "totalShares",
   })
 
+  const feeLabel = usePoolFeeApr(pair, reserve0, reserve1)
   const hasPos = !!(userShares && userShares > 0n)
   const amt0 =
     totalShares && totalShares > 0n && userShares
@@ -69,35 +70,25 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 space-y-3">
       <div className="flex justify-between items-center">
         <span className="font-semibold text-base text-[var(--text)]">{pair}</span>
-        <span className="text-sm text-emerald-400">APR ~2–8% (fees)</span>
+        <span className="text-sm text-emerald-400">{feeLabel}</span>
       </div>
       <div className="text-sm text-[var(--text-muted)]">
-        Share: <span className="text-[var(--text)] font-medium">{formatSharePct(sharePct)}</span>
+        Share:{" "}
+        <span className="text-[var(--text)] font-medium">{formatSharePct(sharePct)}</span>
       </div>
       {hasPos ? (
         <>
           <div className="text-sm text-[var(--text)]">
-            Value ≈ {formatAmt(amt0, t0.decimals)} {t0.symbol} +{" "}
+            Value ~ {formatAmt(amt0, t0.decimals)} {t0.symbol} +{" "}
             {formatAmt(amt1, t1.decimals)} {t1.symbol}
           </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setPage("liquidity")}
-              className="px-4 py-2 rounded-xl border border-[var(--border)] text-sm font-medium"
-            >
-              Manage
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                toast.message("LP fees auto-compound into share value. Remove liquidity to realize.")
-              }
-              className="px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-sm font-semibold border border-emerald-500/30"
-            >
-              Claim
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPage("liquidity")}
+            className="px-4 py-2 rounded-xl border border-[var(--border)] text-sm font-medium"
+          >
+            Manage
+          </button>
         </>
       ) : (
         <button
@@ -112,28 +103,59 @@ function LpRow({ pair, setPage }: { pair: SwapPair; setPage: (p: NavPage) => voi
   )
 }
 
-export default function Portfolio({ assetId, setPage }: PortfolioProps) {
-  const { usdcBal, eurcBal, cirbtcBal } = useBalances()
-  const {
-    userSupply,
-    userDebt,
-    health,
-    poolLive,
-    baseRate,
-    slope1,
-    util,
-    reserveFactor,
-  } = usePoolData(assetId)
-  const asset = ASSETS[assetId]
-  const healthValue = formatHealth(health)
-  const history = typeof window !== "undefined" ? getTxHistory() : []
+function LendRow({ id, setPage }: { id: AssetId; setPage: (p: NavPage) => void }) {
+  const asset = ASSETS[id]
+  const { userSupply, userDebt, health, poolLive, baseRate, slope1, util, reserveFactor } =
+    usePoolData(id)
+  if (!poolLive) return null
 
   let supplyApy = 0n
-  if (baseRate && slope1 && util) {
+  if (baseRate !== undefined && slope1 !== undefined && util !== undefined) {
     const borrowApy = baseRate + (slope1 * util) / 10n ** 18n
     const rf = reserveFactor ?? 0n
     supplyApy = (borrowApy * util * (10n ** 18n - rf)) / (10n ** 18n * 10n ** 18n)
   }
+  const debt =
+    userDebt !== undefined && userDebt > 1000n ? formatAmt(userDebt, asset.decimals) : "0"
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3 h-full">
+      <div className="flex justify-between items-center">
+        <div className="text-base font-medium">Lending · {asset.symbol}</div>
+        <span className="text-sm text-emerald-400">Supply APR {formatApy(supplyApy)}</span>
+      </div>
+      <div className="grid sm:grid-cols-3 gap-5 text-sm">
+        <div>
+          <div className="text-sm text-[var(--text-muted)]">Supplied</div>
+          <div className="text-xl font-semibold text-emerald-400 mt-0.5">
+            {formatAmt(userSupply, asset.decimals)}
+          </div>
+        </div>
+        <div>
+          <div className="text-sm text-[var(--text-muted)]">Borrowed</div>
+          <div className="text-xl font-semibold text-orange-400 mt-0.5">{debt}</div>
+        </div>
+        <div>
+          <div className="text-sm text-[var(--text-muted)]">Health</div>
+          <div className="text-xl font-semibold text-[var(--text)] mt-0.5">
+            {formatHealth(health)}
+          </div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setPage("lend")}
+        className="px-5 py-2.5 rounded-xl border border-[var(--border)] text-sm font-medium"
+      >
+        Manage Lend
+      </button>
+    </div>
+  )
+}
+
+export default function Portfolio({ setPage }: PortfolioProps) {
+  const { usdcBal, eurcBal, cirbtcBal } = useBalances()
+  const history = typeof window !== "undefined" ? getTxHistory() : []
 
   return (
     <div className="space-y-7">
@@ -160,55 +182,20 @@ export default function Portfolio({ assetId, setPage }: PortfolioProps) {
         ))}
       </div>
 
-      <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 md:p-7 space-y-4">
-        <div className="flex justify-between items-center">
-          <div className="text-base font-medium">Lending · {asset.symbol}</div>
-          <span className="text-sm text-emerald-400">Supply APR {formatApy(supplyApy)}</span>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-5 text-sm">
-          <div>
-            <div className="text-sm text-[var(--text-muted)]">Supplied</div>
-            <div className="text-2xl font-semibold text-emerald-400 mt-1">
-              {poolLive ? formatAmt(userSupply, asset.decimals) : "—"}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-[var(--text-muted)]">Borrowed</div>
-            <div className="text-2xl font-semibold text-orange-400 mt-1">
-              {poolLive ? formatAmt(userDebt, asset.decimals) : "—"}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-[var(--text-muted)]">Health</div>
-            <div className="text-2xl font-semibold text-[var(--text)] mt-1">
-              {poolLive ? healthValue : "—"}
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setPage("lend")}
-            className="px-5 py-2.5 rounded-xl border border-[var(--border)] text-sm font-medium"
-          >
-            Manage Lend
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              toast.message("Interest auto-accrues in supply balance. Withdraw anytime.")
-            }
-            className="px-5 py-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 text-sm font-semibold border border-emerald-500/30"
-          >
-            Claim
-          </button>
-        </div>
+      {/* PORTFOLIO_GRID */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {(["USDC", "EURC", "CIRBTC"] as AssetId[]).map((id) => (
+          <LendRow key={id} id={id} setPage={setPage} />
+        ))}
       </div>
 
       <div className="space-y-4">
         <div className="text-base font-medium">Liquidity pools</div>
-        {(Object.keys(PAIR_CONFIG) as SwapPair[]).map((p) => (
-          <LpRow key={p} pair={p} setPage={setPage} />
-        ))}
+        <div className="grid lg:grid-cols-2 gap-4">
+          {(Object.keys(PAIR_CONFIG) as SwapPair[]).map((p) => (
+            <LpRow key={p} pair={p} setPage={setPage} />
+          ))}
+        </div>
       </div>
 
       <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 md:p-7">
@@ -232,7 +219,7 @@ export default function Portfolio({ assetId, setPage }: PortfolioProps) {
                   rel="noreferrer"
                   className="text-sm text-blue-400 shrink-0"
                 >
-                  {tx.hash.slice(0, 8)}…
+                  {tx.hash.slice(0, 8)}...
                 </a>
               </div>
             ))}

@@ -17,6 +17,7 @@ export type NavPage =
   | "portfolio"
   | "payments"
   | "bridge"
+  | "unified"
   | "treasury"
   | "profile"
   | "guide"
@@ -38,21 +39,21 @@ export const ASSETS: Record<
     name: "USD Coin",
     address: "0x3600000000000000000000000000000000000000",
     decimals: 6,
-    pool: "0x1CA2e7B022f13A546Deb665901A8EfE8d407d864",
+    pool: "0x50A452cD83E526400C763388c0642e6a14335319",
   },
   EURC: {
     symbol: "EURC",
     name: "Euro Coin",
     address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
     decimals: 6,
-    pool: "0x4455eb4351936996B71fa87425037d7f744F40A2",
+    pool: "0x73a569D240289DAAc4f947bC3c6bd532bb7A748C",
   },
   CIRBTC: {
     symbol: "cirBTC",
     name: "Circle BTC",
     address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
     decimals: 8,
-    pool: "0x75EA2cFAb03B92822Be363853643E0a538Ab275C",
+    pool: "0xE8cb6B0F90B45776FBfA0E34a3db429449cFEdcF",
   },
   USYC: {
     symbol: "USYC",
@@ -70,17 +71,17 @@ export const PAIR_CONFIG: Record<
   "USDC-EURC": {
     token0: "USDC",
     token1: "EURC",
-    pool: "0x4762112F6Ca8Be4eC38aD29838395B18b7AD0eac",
+    pool: "0x34c8CAC3B240960D262C1B1D25Fff6020d659721",
   },
   "USDC-CIRBTC": {
     token0: "USDC",
     token1: "CIRBTC",
-    pool: "0x2C92870dF31EDE2d4B868CbF640b3Bda54b77e93",
+    pool: "0xE3581342A940894Cd02e5c7D6c5C4aa619d2BA24",
   },
   "EURC-CIRBTC": {
     token0: "EURC",
     token1: "CIRBTC",
-    pool: "0x268BF477bceF2d468D3AeBb5580c61ae70a116e0",
+    pool: "0x771C49a002C4E7A4872bd7aE90F1cE6B9f3A3FF6",
   },
 }
 

@@ -12,6 +12,7 @@ import {
   type LendTab,
 } from "../lib/assets"
 import { usePoolData } from "../hooks/usePoolData"
+import { formatFeeAprLabel } from "../hooks/usePoolFeeApr"
 
 interface DashboardProps {
   assetId: AssetId
@@ -213,7 +214,7 @@ export default function Dashboard({ assetId, setAssetId, setPage, setLendTab }: 
               <div>
                 <div className="font-medium text-[var(--text)]">{p}</div>
                 <div className="text-xs text-emerald-400 mt-0.5">
-                  Fee APR ~2–8% (volume dependent)
+                  Fee 0.04%
                 </div>
               </div>
               <button
@@ -234,7 +235,7 @@ export default function Dashboard({ assetId, setAssetId, setPage, setLendTab }: 
           { id: "swap" as NavPage, label: "Swap", desc: "Trade stables" },
           { id: "portfolio" as NavPage, label: "Portfolio", desc: "Positions" },
           { id: "payments" as NavPage, label: "Payments", desc: "Send tokens" },
-          { id: "bridge" as NavPage, label: "Bridge", desc: "CCTP USDC" },
+          { id: "unified" as NavPage, label: "Unified", desc: "Balance · Lend" },
           { id: "profile" as NavPage, label: "Profile", desc: "Points & missions" },
         ].map((m) => (
           <button

@@ -12,6 +12,7 @@ import BridgePanel from "./components/BridgePanel"
 import Profile from "./components/Profile"
 import Guide from "./components/Guide"
 import Treasury from "./components/Treasury"
+import UnifiedBalancePanel from "./components/UnifiedBalancePanel"
 import type { AssetId, LendTab, NavPage } from "./lib/assets"
 
 export default function App() {
@@ -25,7 +26,7 @@ export default function App() {
       <Header onOpenProfile={() => setPage("profile")} />
       <Navbar page={page} setPage={setPage} />
 
-      <main className="max-w-6xl mx-auto px-4 py-6 w-full">
+      <main className="max-w-[1400px] mx-auto px-6 py-6 w-full">
         {page === "dashboard" && (
           <Dashboard
             assetId={assetId}
@@ -42,13 +43,16 @@ export default function App() {
             setLendTab={setLendTab}
           />
         )}
-        {page === "swap" && <SwapPanel />}
+        {page === "swap" && <SwapPanel setPage={setPage} />}
         {page === "liquidity" && <LiquidityPanel />}
         {page === "portfolio" && (
           <Portfolio assetId={assetId} setPage={setPage} />
         )}
         {page === "payments" && <SendPanel />}
         {page === "bridge" && <BridgePanel />}
+        {page === "unified" && (
+          <UnifiedBalancePanel setPage={setPage} setLendTab={setLendTab} setAssetId={setAssetId} />
+        )}
         {page === "profile" && <Profile setPage={setPage} />}
         {page === "guide" && <Guide />}
         {page === "treasury" && <Treasury />}

@@ -1,7 +1,7 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { Sun, Moon } from "lucide-react"
 import { useTheme } from "../lib/theme"
-import { getPoints, getDisplayName } from "../lib/points"
+import { getPoints } from "../lib/points"
 
 interface HeaderProps {
   onOpenProfile: () => void
@@ -10,24 +10,30 @@ interface HeaderProps {
 export default function Header({ onOpenProfile }: HeaderProps) {
   const { theme, toggle } = useTheme()
   const points = typeof window !== "undefined" ? getPoints() : 0
-  const name = typeof window !== "undefined" ? getDisplayName() : ""
 
   return (
     <header className="border-b border-[var(--border)] bg-[var(--bg)]">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-black font-bold text-sm">
+      <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-black font-bold text-base">
             F
           </div>
-          <div>
-            <div className="font-semibold text-[var(--text)] leading-tight">Flowlend</div>
-            <div className="text-[10px] text-[var(--text-muted)] leading-tight">
-              {name || "Bear Crypto"}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold tracking-tight text-[var(--text)]">
+                Flowlend
+              </span>
+              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border border-cyan-500/40 text-cyan-400">
+                Arc Testnet
+              </span>
+            </div>
+            <div className="text-xs text-[var(--text-muted)] truncate">
+              Money markets on Arc · Circle rails
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <a
             href="https://faucet.circle.com"
             target="_blank"

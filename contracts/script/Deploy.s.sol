@@ -10,9 +10,9 @@ contract DeployLendingPool is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address usdcAddress = vm.envAddress("USDC_ADDRESS");
 
-        uint256 baseRatePerYear     = 0.05e18;   // 5%
-        uint256 slope1PerYear       = 0.08e18;   // 8%
-        uint256 slope2PerYear       = 1.00e18;   // 100%
+        uint256 baseRatePerYear     = 0.02e18;   // 2%   // 5%
+        uint256 slope1PerYear       = 0.05e18;   // 5%   // 8%
+        uint256 slope2PerYear       = 0.80e18;   // 80%   // 100%
         uint256 optimalUtilization  = 0.80e18;   // 80%
         uint256 reserveFactor       = 0.10e18;   // 10%
         bool    complianceEnabled   = true;

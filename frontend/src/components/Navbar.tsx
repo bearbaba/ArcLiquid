@@ -8,6 +8,7 @@ const PAGES: { id: NavPage; label: string }[] = [
   { id: "portfolio", label: "Portfolio" },
   { id: "payments", label: "Payments" },
   { id: "bridge", label: "Bridge" },
+  { id: "unified", label: "Unified" },
   { id: "treasury", label: "Treasury" },
   { id: "profile", label: "Profile" },
   { id: "guide", label: "Guide" },
@@ -21,7 +22,7 @@ interface NavbarProps {
 export default function Navbar({ page, setPage }: NavbarProps) {
   return (
     <nav className="border-b border-[var(--border)] bg-[var(--bg)]">
-      <div className="max-w-6xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-start gap-1.5">
+      <div className="max-w-[1400px] mx-auto px-6 py-2.5 flex flex-wrap items-center justify-start gap-1.5">
         {PAGES.map((p) => (
           <button
             key={p.id}
