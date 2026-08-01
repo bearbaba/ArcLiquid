@@ -135,7 +135,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       setPending(balances?.totalPendingBalance ?? "0")
     } catch (e: any) {
       console.error(e)
-      toast.error(e?.message || "Failed to load balance")
+      toast.error(e?.shortMessage || e?.message || "Failed to load balance")
     } finally {
       setRefreshing(false)
     }
@@ -168,10 +168,11 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       })
       toast.success("Deposit submitted")
       setAmount("")
+      void refreshBalance()
       setTimeout(() => void refreshBalance(), 2000)
     } catch (e: any) {
       console.error(e)
-      toast.error(e?.message || "Deposit failed")
+      toast.error(e?.shortMessage || e?.message || e?.details || "Deposit failed")
     } finally {
       setLoading(false)
       setStep("")
@@ -198,10 +199,11 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       })
       toast.success("Spend submitted")
       setAmount("")
+      void refreshBalance()
       setTimeout(() => void refreshBalance(), 2000)
     } catch (e: any) {
       console.error(e)
-      toast.error(e?.message || "Spend failed")
+      toast.error(e?.shortMessage || e?.message || e?.details || "Spend failed")
     } finally {
       setLoading(false)
       setStep("")
