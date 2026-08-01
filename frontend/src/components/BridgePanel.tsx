@@ -16,8 +16,6 @@ const CHAINS: { id: ChainId; label: string }[] = [
   { id: "Base_Sepolia", label: "Base Sepolia" },
 ]
 
-
-// USDC addresses on each testnet
 const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
   Arc_Testnet: ASSETS.USDC.address,
   Ethereum_Sepolia: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
@@ -51,7 +49,6 @@ async function fetchUsdcBalance(chain: ChainId, address: `0x${string}`) {
       functionName: "balanceOf",
       args: [address],
     })
-    // Arc USDC in assets is 6 decimals; Sepolia/Base Circle USDC is usually 6
     return formatUnits(bal as bigint, 6)
   } catch {
     return null
@@ -72,15 +69,12 @@ export default function BridgePanel() {
   })
   const [refreshing, setRefreshing] = useState(false)
 
-  // Arc balance via wagmi (nhanh khi đang ở Arc)
   const { data: arcBal, refetch: refetchArcBal } = useReadContract({
     address: ASSETS.USDC.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: {
-      enabled: !!address,
-    },
+    query: { enabled: !!address },
   })
 
   const refreshAllBalances = useCallback(async () => {
@@ -107,7 +101,6 @@ export default function BridgePanel() {
     if (isConnected && address) void refreshAllBalances()
   }, [isConnected, address, refreshAllBalances])
 
-  // Ưu tiên số từ multi-fetch, fallback wagmi Arc
   const fromBalance =
     balances[fromChain] ??
     (fromChain === "Arc_Testnet" && arcBal !== undefined
@@ -144,17 +137,23 @@ export default function BridgePanel() {
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
+        toast.success("Bridge submitted")
+        addPoints(REWARDS.bridge)
+        setAmount("")
+        void refreshAllBalances()
+        setTimeout(() => void refreshAllBalances(), 3000)
+      } else {
+        console.warn("Bridge result without tx hash:", result)
+        toast.error("Bridge not confirmed — check wallet popup or try again")
       }
-
-      toast.success("Bridge submitted")
-      addPoints(REWARDS.bridge)
-      setAmount("")
-      // Cập nhật số dư ngay + thêm lần nữa sau vài giây
-      void refreshAllBalances()
-      setTimeout(() => void refreshAllBalances(), 3000)
     } catch (err: any) {
       console.error(err)
-      toast.error(err?.message || "Bridge failed")
+      const msg = err?.shortMessage || err?.message || err?.details || "Bridge failed"
+      if (/user rejected|denied|reject/i.test(String(msg))) {
+        toast.error("You rejected the transaction")
+      } else {
+        toast.error(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -162,7 +161,6 @@ export default function BridgePanel() {
 
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
-      {/* Balances 3 mạng */}
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium text-[var(--text)]">USDC Balances</div>
