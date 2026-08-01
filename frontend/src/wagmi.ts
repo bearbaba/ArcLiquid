@@ -9,8 +9,10 @@ export const arcTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://5042002.rpc.thirdweb.com',
         'https://rpc.quicknode.testnet.arc.network',
+        'https://rpc.drpc.testnet.arc.network',
+        'https://rpc.blockdaemon.testnet.arc.network',
+        'https://5042002.rpc.thirdweb.com',
         'https://rpc.testnet.arc.network',
       ],
     },
@@ -26,9 +28,11 @@ export const config = getDefaultConfig({
   chains: [arcTestnet],
   transports: {
     [arcTestnet.id]: fallback([
-      http('https://5042002.rpc.thirdweb.com'),
-      http('https://rpc.quicknode.testnet.arc.network'),
-      http('https://rpc.testnet.arc.network'),
+      http('https://rpc.quicknode.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
+      http('https://rpc.drpc.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
+      http('https://rpc.blockdaemon.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
+      http('https://5042002.rpc.thirdweb.com', { timeout: 12000, retryCount: 2 }),
+      http('https://rpc.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
     ]),
   },
   ssr: false,

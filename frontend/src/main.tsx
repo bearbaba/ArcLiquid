@@ -16,9 +16,11 @@ import App from "./App"
 import "./index.css"
 
 const ARC_RPCS = [
-  "https://rpc.testnet.arc.network",
   "https://rpc.quicknode.testnet.arc.network",
-  "https://rpc.drpc.testnet.arc.io",
+  "https://rpc.drpc.testnet.arc.network",
+  "https://rpc.blockdaemon.testnet.arc.network",
+  "https://5042002.rpc.thirdweb.com",
+  "https://rpc.testnet.arc.network",
   "https://rpc.testnet.arc.io",
 ] as const
 
@@ -39,16 +41,24 @@ const config = getDefaultConfig({
   projectId: "13d1dd812b4dd10a1d67aba4c9431081",
   chains: [arcTestnet],
   transports: {
-    [arcTestnet.id]: fallback(ARC_RPCS.map((url) => http(url))),
+    [arcTestnet.id]: fallback(
+      ARC_RPCS.map((url) =>
+        http(url, {
+          timeout: 12_000,
+          retryCount: 2,
+          retryDelay: 1000,
+        })
+      )
+    ),
   },
 })
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: true,
-      staleTime: 4_000,
-      retry: 2,
+      refetchOnWindowFocus: false,
+      staleTime: 15_000,
+      retry: 1,
     },
   },
 })
