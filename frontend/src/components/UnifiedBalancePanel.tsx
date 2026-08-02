@@ -9,6 +9,7 @@ import { parseUnits, maxUint256 } from "viem"
 import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { getAppKit } from "../lib/circleAppKit"
+import { resolveChainIdentifier } from "@circle-fin/adapter-viem-v2"
 import { ASSETS, formatAmt, formatHealth } from "../lib/assets"
 import { usePoolData } from "../hooks/usePoolData"
 import type { AssetId, LendTab, NavPage } from "../lib/assets"
@@ -161,11 +162,22 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     setStep("Depositing...")
     try {
       const { kit, adapter } = await getAppKit()
-      await kit.unifiedBalance.deposit({
+      setStep("Switching chain...")
+      try {
+        const chain = resolveChainIdentifier(fromChain)
+        if (chain && typeof adapter.ensureChain === "function") {
+          await adapter.ensureChain(chain)
+        }
+      } catch (switchErr) {
+        console.warn("ensureChain failed", switchErr)
+      }
+      setStep("Depositing...")
+      const result = await kit.unifiedBalance.deposit({
         from: { adapter, chain: fromChain },
         amount: clean,
         token: "USDC",
       })
+      console.log("deposit result", result)
       toast.success("Deposit submitted")
       setAmount("")
       void refreshBalance()
