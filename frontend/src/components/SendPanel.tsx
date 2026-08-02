@@ -54,7 +54,7 @@ export default function SendPanel() {
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !useKit },
+    query: { enabled: !!address },
   })
 
   const {
@@ -83,7 +83,7 @@ export default function SendPanel() {
   }, [erc20Error])
 
   const setPercent = (pct: number) => {
-    if (bal === undefined || useKit) return
+    if (bal === undefined) return
     const v = (Number(bal) * pct) / 100 / 10 ** asset.decimals
     setAmount(v.toFixed(Math.min(asset.decimals, 6)))
   }
@@ -167,7 +167,7 @@ export default function SendPanel() {
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-1.5">
           <div className="flex justify-between text-xs text-[var(--text-muted)]">
             <span>Amount</span>
-            {isConnected && !useKit && (
+            {isConnected && (
               <span>
                 Bal: {formatAmt(bal, asset.decimals)} {token}
               </span>
@@ -181,8 +181,7 @@ export default function SendPanel() {
             placeholder="0.00"
             className="field-input w-full px-3 py-2 text-xl outline-none font-semibold"
           />
-          {!useKit && (
-            <div className="flex justify-end">
+          <div className="flex justify-end">
               <div className="flex gap-1">
                 {[25, 50, 75, 100].map((pct) => (
                   <button
@@ -196,7 +195,6 @@ export default function SendPanel() {
                 ))}
               </div>
             </div>
-          )}
         </div>
 
         <button

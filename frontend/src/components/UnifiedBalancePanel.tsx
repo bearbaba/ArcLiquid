@@ -282,6 +282,20 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     }
   }
 
+  const setPercent = (pct: number) => {
+    let base: number | null = null
+    if (mode === "spend" || mode === "supply" || mode === "repay") {
+      const n = Number(confirmed)
+      if (!Number.isNaN(n) && n > 0) base = n
+    } else if (mode === "deposit") {
+      if (fromChain === "Arc_Testnet" && arcUsdcBal !== undefined) {
+        base = Number(arcUsdcBal) / 10 ** asset.decimals
+      }
+    }
+    if (base === null || base <= 0) return
+    setAmount(((base * pct) / 100).toFixed(6))
+  }
+
   const onPrimary = () => {
     if (mode === "deposit") return void handleDeposit()
     if (mode === "spend") return void handleSpend()
@@ -419,6 +433,9 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
             {mode === "deposit" && fromChain === "Arc_Testnet" && (
               <span>Wallet: {formatAmt(arcUsdcBal, asset.decimals)}</span>
             )}
+            {(mode === "spend" || mode === "supply" || mode === "repay") && (
+              <span>Available: {confirmed} USDC</span>
+            )}
           </div>
           <input
             type="text"
@@ -428,6 +445,20 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
             placeholder="0.00"
             className="field-input w-full px-3 py-2 text-xl outline-none font-semibold"
           />
+          <div className="flex justify-end">
+            <div className="flex gap-1">
+              {[25, 50, 75, 100].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setPercent(pct)}
+                  className="pct-btn px-2 py-0.5 text-[10px]"
+                >
+                  {pct === 100 ? "MAX" : `${pct}%`}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {step && <div className="text-xs text-cyan-400">{step}</div>}
