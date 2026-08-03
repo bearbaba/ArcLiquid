@@ -180,7 +180,7 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
         onSuccess: (txHash) => {
           toast.success(`${lendTab} submitted`)
           addPoints(REWARDS[lendTab] || 10)
-          if (txHash) pushTx(lendTab, `${lendTab} ${amount} ${asset.symbol}`, txHash)
+          if (txHash) pushTx(lendTab, lendTab + " " + amount + " " + asset.symbol, txHash)
           setAmount("")
           setTimeout(() => {
             refetchAll()

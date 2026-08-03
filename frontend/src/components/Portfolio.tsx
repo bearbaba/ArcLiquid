@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { useAccount, useReadContract } from "wagmi"
 import {
   ASSETS,
@@ -155,7 +156,19 @@ function LendRow({ id, setPage }: { id: AssetId; setPage: (p: NavPage) => void }
 
 export default function Portfolio({ setPage }: PortfolioProps) {
   const { usdcBal, eurcBal, cirbtcBal } = useBalances()
-  const history = typeof window !== "undefined" ? getTxHistory() : []
+  const [history, setHistory] = useState(() =>
+    typeof window !== "undefined" ? getTxHistory() : []
+  )
+  useEffect(() => {
+    const load = () => setHistory(getTxHistory())
+    load()
+    window.addEventListener("flowlend-tx", load)
+    window.addEventListener("storage", load)
+    return () => {
+      window.removeEventListener("flowlend-tx", load)
+      window.removeEventListener("storage", load)
+    }
+  }, [])
 
   return (
     <div className="space-y-7">
