@@ -11,7 +11,8 @@ import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
-import { ASSETS, formatAmt } from "../lib/assets"
+import { pushTx, getTxHistory } from "../lib/txHistory"
+import { ASSETS, formatAmt, pctOfBalance } from "../lib/assets"
 import { getAppKit } from "../lib/circleAppKit"
 
 const ARC_CHAIN_ID = 5042002
@@ -38,6 +39,7 @@ const erc20Abi = [
 ] as const
 
 export default function SendPanel() {
+  const history = typeof window !== "undefined" ? getTxHistory().filter((x) => x.type === "send") : []
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const [token, setToken] = useState<Token>("USDC")
@@ -83,9 +85,18 @@ export default function SendPanel() {
   }, [erc20Error])
 
   const setPercent = (pct: number) => {
-    if (bal === undefined) return
-    const v = (Number(bal) * pct) / 100 / 10 ** asset.decimals
-    setAmount(v.toFixed(Math.min(asset.decimals, 6)))
+    if (bal === undefined || bal === null) return
+    setAmount(pctOfBalance(bal as bigint, pct, asset.decimals))
+  }
+
+  let exceedsBalance = false
+  try {
+    if (amount && bal !== undefined) {
+      const v = parseUnits(amount.replace(",", ".").trim() || "0", asset.decimals)
+      exceedsBalance = v > (bal as bigint)
+    }
+  } catch {
+    exceedsBalance = false
   }
 
   const handleSend = async () => {
@@ -94,6 +105,7 @@ export default function SendPanel() {
     if (!to || !isAddress(to)) return toast.error("Invalid recipient address")
     const clean = amount.replace(",", ".").trim()
     if (!clean || Number(clean) <= 0) return toast.error("Enter a valid amount")
+    if (exceedsBalance) return toast.error("Amount exceeds balance")
 
     if (useKit) {
       setKitLoading(true)
@@ -199,7 +211,7 @@ export default function SendPanel() {
 
         <button
           onClick={() => void handleSend()}
-          disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !to || !amount}
+          disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !to || !amount || exceedsBalance}
           className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2"
         >
           {isPending || isConfirming ? (

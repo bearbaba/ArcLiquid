@@ -9,7 +9,7 @@ import {
 import { parseUnits, maxUint256 } from "viem"
 import { toast } from "sonner"
 import { RefreshCw, Shield } from "lucide-react"
-import { ASSETS, formatAmt, formatHealth, formatApy, formatUtil, type AssetId, type LendTab } from "../lib/assets"
+import { ASSETS, formatAmt, formatHealth, formatApy, formatUtil, pctOfBalance, type AssetId, type LendTab } from "../lib/assets"
 import { usePoolData } from "../hooks/usePoolData"
 import { useBalances } from "../hooks/useBalances"
 import { addPoints, REWARDS } from "../lib/points"
@@ -117,6 +117,15 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
     args: address && poolLive ? [address, poolAddr] : undefined,
   })
 
+  const exceedsLimit = (() => {
+    if (!amount || parsedAmount <= 0n) return false
+    if (lendTab === "supply" && tokenBal !== undefined) return parsedAmount > tokenBal
+    if (lendTab === "withdraw" && userSupply !== undefined) return parsedAmount > userSupply
+    if (lendTab === "borrow" && maxBorrow !== undefined) return parsedAmount > maxBorrow
+    if (lendTab === "repay" && userDebt !== undefined) return parsedAmount > userDebt
+    return false
+  })()
+
   const isApproved =
     !needApprove || (!!allowance && parsedAmount > 0n && allowance >= parsedAmount)
 
@@ -134,8 +143,8 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
     if (lendTab === "withdraw") base = userSupply
     if (lendTab === "borrow") base = maxBorrow
     if (lendTab === "repay") base = userDebt
-    if (!base) return
-    setAmount(((Number(base) * pct) / 100 / 10 ** asset.decimals).toString())
+    if (base === undefined || base === null) return
+    setAmount(pctOfBalance(base, pct, asset.decimals))
   }
 
   const approve = () => {
@@ -171,7 +180,7 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
         onSuccess: (txHash) => {
           toast.success(`${lendTab} submitted`)
           addPoints(REWARDS[lendTab] || 10)
-          if (txHash) pushTx(lendTab, lendTab + " " + asset.symbol, txHash)
+          if (txHash) pushTx(lendTab, `${lendTab} ${amount} ${asset.symbol}`, txHash)
           setAmount("")
           setTimeout(() => {
             refetchAll()
@@ -360,7 +369,10 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
           className="field-input w-full px-3 py-2 text-xl outline-none mb-3 font-semibold"
         />
 
-        {needApprove && !!amount && !isApproved && (
+        {exceedsLimit && (
+          <div className="text-xs text-red-400 mb-2 font-medium">Amount exceeds available balance</div>
+        )}
+        {needApprove && !!amount && !isApproved && !exceedsLimit && (
           <button
             onClick={approve}
             disabled={isPending || isConfirming}
@@ -370,10 +382,10 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
           </button>
         )}
 
-        {!!amount && isApproved && (
+        {!!amount && isApproved && !exceedsLimit && (
           <button
             onClick={execute}
-            disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !poolLive}
+            disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !poolLive || exceedsLimit}
             className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40"
           >
             {isPending || isConfirming ? "Confirming..." : `${lendTab} ${asset.symbol}`}

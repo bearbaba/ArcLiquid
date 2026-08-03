@@ -14,6 +14,7 @@ import {
   type SwapToken,
   type SwapPair,
   formatAmt,
+  pctOfBalance,
 } from "../lib/assets"
 import { addPoints, REWARDS } from "../lib/points"
 import { swapAbi } from "../lib/circleKit"
@@ -136,9 +137,8 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
   }, [isSuccess])
 
   const setPercent = (pct: number) => {
-    if (!swapFromBal) return
-    const val = (Number(swapFromBal) * pct) / 100 / 10 ** ASSETS[swapFrom].decimals
-    setSwapAmount(val.toString())
+    if (swapFromBal === undefined || swapFromBal === null) return
+    setSwapAmount(pctOfBalance(swapFromBal as bigint, pct, ASSETS[swapFrom].decimals))
   }
 
   const approveSwap = () => {
@@ -176,7 +176,7 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
           if (txHash) {
             pushTx(
               "swap",
-              ASSETS[swapFrom].symbol + " → " + ASSETS[swapTo].symbol,
+              `${swapAmount} ${ASSETS[swapFrom].symbol} → ${ASSETS[swapTo].symbol}`,
               txHash
             )
           }
@@ -360,6 +360,9 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
         </div>
       </div>
 
+      {!!swapAmount && exceedsBalance && (
+        <div className="text-xs text-red-400 text-center font-medium">Amount exceeds balance</div>
+      )}
       {!!swapAmount && !exceedsBalance && !isApproved && (
         <button
           onClick={approveSwap}

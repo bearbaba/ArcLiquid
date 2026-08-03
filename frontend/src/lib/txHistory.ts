@@ -9,7 +9,6 @@ const KEY = "flowlend-tx-history"
 const MAX = 20
 
 export function pushTx(type: string, detail: string, hash?: string) {
-  if (!hash) return
   let list: TxRecord[] = []
   try {
     list = JSON.parse(localStorage.getItem(KEY) || "[]")
@@ -17,7 +16,7 @@ export function pushTx(type: string, detail: string, hash?: string) {
     list = []
   }
   list.unshift({
-    hash,
+    hash: hash || "",
     type,
     detail,
     time: new Date().toISOString(),

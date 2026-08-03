@@ -116,3 +116,8 @@ export function formatSharePct(bps?: bigint) {
   if (!bps) return "0.00%"
   return (Number(bps) / 100).toFixed(2) + "%"
 }
+export function pctOfBalance(balance: bigint, pct: number, decimals: number): string {
+  if (pct <= 0) return "0"
+  if (pct >= 100) return formatUnits(balance, decimals)
+  return formatUnits((balance * BigInt(pct)) / 100n, decimals)
+}
