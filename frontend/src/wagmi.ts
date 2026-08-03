@@ -9,6 +9,7 @@ export const arcTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
+        ...(import.meta.env.VITE_ALCHEMY_ARC_RPC ? [import.meta.env.VITE_ALCHEMY_ARC_RPC as string] : []),
         'https://rpc.quicknode.testnet.arc.network',
         'https://rpc.drpc.testnet.arc.network',
         'https://rpc.blockdaemon.testnet.arc.network',
@@ -28,6 +29,7 @@ export const config = getDefaultConfig({
   chains: [arcTestnet],
   transports: {
     [arcTestnet.id]: fallback([
+      ...(import.meta.env.VITE_ALCHEMY_ARC_RPC ? [http(import.meta.env.VITE_ALCHEMY_ARC_RPC as string, { timeout: 12000, retryCount: 2 })] : []),
       http('https://rpc.quicknode.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
       http('https://rpc.drpc.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
       http('https://rpc.blockdaemon.testnet.arc.network', { timeout: 12000, retryCount: 2 }),

@@ -11,3 +11,4 @@ contracts/.env
 .DS_Store
 dist/
 frontend/dist/
+.env
