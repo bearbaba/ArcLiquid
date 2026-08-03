@@ -155,23 +155,45 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
   }, [isSuccess])
 
   const handleDeposit = async () => {
+    if (loading) return
     if (!isConnected) return toast.error("Connect wallet first")
     const clean = amount.replace(",", ".").trim()
     if (!clean || Number(clean) <= 0) return toast.error("Enter a valid amount")
     setLoading(true)
-    setStep("Depositing...")
+    setStep("Preparing wallet...")
     try {
-      const { kit, adapter } = await getAppKit()
+      const eth = (window as any).ethereum
+      if (eth?.request) {
+        try { await eth.request({ method: "eth_requestAccounts" }) } catch {}
+      }
       setStep("Switching chain...")
+      if (fromChain === "Arc_Testnet" && eth?.request) {
+        try {
+          await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x4cf352" }] })
+        } catch (switchErr: any) {
+          if (switchErr?.code === 4902) {
+            try {
+              await eth.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: "0x4cf352",
+                  chainName: "Arc Testnet",
+                  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+                  rpcUrls: ["https://rpc.quicknode.testnet.arc.network"],
+                  blockExplorerUrls: ["https://testnet.arcscan.app"],
+                }],
+              })
+            } catch {}
+          }
+        }
+        await new Promise((r) => setTimeout(r, 400))
+      }
+      const { kit, adapter } = await getAppKit()
       try {
         const chain = resolveChainIdentifier(fromChain)
-        if (chain && typeof adapter.ensureChain === "function") {
-          await adapter.ensureChain(chain)
-        }
-      } catch (switchErr) {
-        console.warn("ensureChain failed", switchErr)
-      }
-      setStep("Depositing...")
+        if (chain && typeof adapter.ensureChain === "function") await adapter.ensureChain(chain)
+      } catch (e) { console.warn("ensureChain", e) }
+      setStep("Confirm in wallet...")
       const result = await kit.unifiedBalance.deposit({
         from: { adapter, chain: fromChain },
         amount: clean,
@@ -181,10 +203,12 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       toast.success("Deposit submitted")
       setAmount("")
       void refreshBalance()
-      setTimeout(() => void refreshBalance(), 2000)
+      setTimeout(() => void refreshBalance(), 2500)
     } catch (e: any) {
       console.error(e)
-      toast.error(e?.shortMessage || e?.message || e?.details || "Deposit failed")
+      const msg = e?.shortMessage || e?.message || e?.details || "Deposit failed"
+      if (/user rejected|denied|reject/i.test(String(msg))) toast.error("You rejected the transaction")
+      else toast.error(msg)
     } finally {
       setLoading(false)
       setStep("")
