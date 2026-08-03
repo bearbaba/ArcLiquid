@@ -114,11 +114,20 @@ export default function BridgePanel() {
     setAmount(v.toFixed(6))
   }
 
+  let exceedsBalance = false
+  try {
+    const cleanAmt = amount.replace(",", ".").trim()
+    if (cleanAmt && fromBalance !== null && fromBalance !== undefined) {
+      exceedsBalance = Number(cleanAmt) > Number(fromBalance) + 1e-12
+    }
+  } catch {}
+
   const handleBridge = async () => {
     if (!isConnected || !address) return toast.error("Connect wallet first")
     if (fromChain === toChain) return toast.error("Choose different chains")
     const clean = amount.replace(",", ".").trim()
     if (!clean || Number(clean) <= 0) return toast.error("Enter a valid amount")
+    if (exceedsBalance) return toast.error("Amount exceeds balance")
 
     setLoading(true)
     setTxHash(undefined)
@@ -266,10 +275,13 @@ export default function BridgePanel() {
           </div>
         </div>
 
+        {exceedsBalance && (
+          <div className="text-xs text-red-400 font-medium">Amount exceeds balance</div>
+        )}
         <button
           type="button"
           onClick={handleBridge}
-          disabled={loading || !isConnected || !amount}
+          disabled={loading || !isConnected || !amount || exceedsBalance}
           className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2"
         >
           {loading ? (

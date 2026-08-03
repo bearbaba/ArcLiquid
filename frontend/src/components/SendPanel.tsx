@@ -80,8 +80,7 @@ export default function SendPanel() {
   try {
     const cleanAmt = amount.replace(",", ".").trim()
     if (cleanAmt && bal !== undefined) {
-      const v = parseUnits(cleanAmt, asset.decimals)
-      exceedsBalance = v > (bal as bigint)
+      exceedsBalance = parseUnits(cleanAmt, asset.decimals) > (bal as bigint)
     }
   } catch {
     exceedsBalance = false
