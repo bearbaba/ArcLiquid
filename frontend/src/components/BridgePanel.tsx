@@ -114,13 +114,6 @@ export default function BridgePanel() {
     setAmount(v.toFixed(6))
   }
 
-  let exceedsBalance = false
-  try {
-    const cleanAmt = amount.replace(",", ".").trim()
-    if (cleanAmt && fromBalance !== null && fromBalance !== undefined) {
-      exceedsBalance = Number(cleanAmt) > Number(fromBalance) + 1e-12
-    }
-  } catch {}
 
   const exceedsBalance = (() => {
     try {
