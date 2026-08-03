@@ -39,13 +39,19 @@ const erc20Abi = [
 ] as const
 
 export default function SendPanel() {
-  const history = typeof window !== "undefined" ? getTxHistory().filter((x) => x.type === "send") : []
   const { address, isConnected } = useAccount()
   const chainId = useChainId()
   const [token, setToken] = useState<Token>("USDC")
   const [to, setTo] = useState("")
   const [amount, setAmount] = useState("")
   const [kitLoading, setKitLoading] = useState(false)
+  const [historyTick, setHistoryTick] = useState(0)
+
+  const history =
+    typeof window !== "undefined"
+      ? getTxHistory().filter((x) => x.type === "send")
+      : []
+  void historyTick
 
   const isWrongNetwork = isConnected && chainId !== ARC_CHAIN_ID
   const asset = ASSETS[token]
@@ -70,12 +76,25 @@ export default function SendPanel() {
   const isPending = erc20Pending || kitLoading
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
+  let exceedsBalance = false
+  try {
+    const cleanAmt = amount.replace(",", ".").trim()
+    if (cleanAmt && bal !== undefined) {
+      const v = parseUnits(cleanAmt, asset.decimals)
+      exceedsBalance = v > (bal as bigint)
+    }
+  } catch {
+    exceedsBalance = false
+  }
+
   useEffect(() => {
     if (isSuccess) {
       toast.success("Transfer successful")
       addPoints(REWARDS.send)
+      if (hash) pushTx("send", `Send ${amount || ""} ${token}`, hash)
       setAmount("")
       setTo("")
+      setHistoryTick((n) => n + 1)
       setTimeout(() => refetchBal(), 2000)
     }
   }, [isSuccess])
@@ -87,16 +106,6 @@ export default function SendPanel() {
   const setPercent = (pct: number) => {
     if (bal === undefined || bal === null) return
     setAmount(pctOfBalance(bal as bigint, pct, asset.decimals))
-  }
-
-  let exceedsBalance = false
-  try {
-    if (amount && bal !== undefined) {
-      const v = parseUnits(amount.replace(",", ".").trim() || "0", asset.decimals)
-      exceedsBalance = v > (bal as bigint)
-    }
-  } catch {
-    exceedsBalance = false
   }
 
   const handleSend = async () => {
@@ -119,8 +128,10 @@ export default function SendPanel() {
         })
         toast.success("Send submitted")
         addPoints(REWARDS.send)
+        pushTx("send", `Send ${clean} ${token} → ${to.slice(0, 6)}...${to.slice(-4)}`)
         setAmount("")
         setTo("")
+        setHistoryTick((n) => n + 1)
       } catch (e: any) {
         console.error(e)
         toast.error(e?.message || "Send failed")
@@ -194,24 +205,35 @@ export default function SendPanel() {
             className="field-input w-full px-3 py-2 text-xl outline-none font-semibold"
           />
           <div className="flex justify-end">
-              <div className="flex gap-1">
-                {[25, 50, 75, 100].map((pct) => (
-                  <button
-                    key={pct}
-                    type="button"
-                    onClick={() => setPercent(pct)}
-                    className="pct-btn px-2 py-0.5 text-[10px]"
-                  >
-                    {pct === 100 ? "MAX" : `${pct}%`}
-                  </button>
-                ))}
-              </div>
+            <div className="flex gap-1">
+              {[25, 50, 75, 100].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setPercent(pct)}
+                  className="pct-btn px-2 py-0.5 text-[10px]"
+                >
+                  {pct === 100 ? "MAX" : `${pct}%`}
+                </button>
+              ))}
             </div>
+          </div>
+          {exceedsBalance && (
+            <div className="text-xs text-red-400 font-medium">Amount exceeds balance</div>
+          )}
         </div>
 
         <button
           onClick={() => void handleSend()}
-          disabled={isPending || isConfirming || !isConnected || isWrongNetwork || !to || !amount || exceedsBalance}
+          disabled={
+            isPending ||
+            isConfirming ||
+            !isConnected ||
+            isWrongNetwork ||
+            !to ||
+            !amount ||
+            exceedsBalance
+          }
           className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2"
         >
           {isPending || isConfirming ? (
@@ -248,6 +270,28 @@ export default function SendPanel() {
         <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
           Same-chain transfers on Arc. No protocol fee on Payments.
         </p>
+        <div className="pt-3 border-t border-[var(--border)] space-y-2">
+          <div className="text-xs font-medium text-[var(--text)]">Recent sends</div>
+          {history.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">No sends yet on this device.</p>
+          ) : (
+            history.slice(0, 8).map((tx) => (
+              <div key={(tx.hash || "") + tx.time} className="text-xs space-y-0.5">
+                <div className="text-[var(--text)]">{tx.detail}</div>
+                {tx.hash ? (
+                  <a
+                    href={`https://testnet.arcscan.app/tx/${tx.hash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-400"
+                  >
+                    {tx.hash.slice(0, 10)}...
+                  </a>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   )
