@@ -6,6 +6,7 @@ import { Loader2, RefreshCw } from "lucide-react"
 import { getAppKit } from "../lib/circleAppKit"
 import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
+import { pushTx } from "../lib/txHistory"
 import { ASSETS } from "../lib/assets"
 
 type ChainId = "Arc_Testnet" | "Ethereum_Sepolia" | "Base_Sepolia"
@@ -152,6 +153,7 @@ export default function BridgePanel() {
         setTxHash(hash as `0x${string}`)
         toast.success("Bridge submitted")
         addPoints(REWARDS.bridge)
+        pushTx("bridge", "Bridge " + clean + " USDC " + fromChain + " -> " + toChain, hash)
         setAmount("")
         void refreshAllBalances()
         setTimeout(() => void refreshAllBalances(), 3000)

@@ -230,10 +230,10 @@ export default function LiquidityPanel() {
         args: [liqParsed0, liqParsed1],
       },
       {
-        onSuccess: () => {
+        onSuccess: (txHash) => {
           toast.success("Add liquidity submitted")
           addPoints(REWARDS.addLiquidity)
-          if (hash) pushTx("addLiquidity", "Add " + swapPair, hash)
+          if (txHash) pushTx("addLiquidity", "Add LP " + swapPair, txHash)
           setLiqAmount0("")
           setLiqAmount1("")
         },
@@ -252,10 +252,10 @@ export default function LiquidityPanel() {
         args: [removeSharesBn],
       },
       {
-        onSuccess: () => {
+        onSuccess: (txHash) => {
           toast.success("Remove liquidity submitted")
           addPoints(REWARDS.removeLiquidity)
-          if (hash) pushTx("removeLiquidity", "Remove " + swapPair, hash)
+          if (txHash) pushTx("removeLiquidity", "Remove LP " + swapPair, txHash)
           setRemoveAmount0("")
         },
         onError: (e: any) => toast.error(e?.shortMessage || "Failed"),
