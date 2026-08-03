@@ -284,9 +284,13 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
 
   const setPercent = (pct: number) => {
     let base: number | null = null
-    if (mode === "spend" || mode === "supply" || mode === "repay") {
+    if (mode === "spend" || mode === "supply") {
       const n = Number(confirmed)
       if (!Number.isNaN(n) && n > 0) base = n
+    } else if (mode === "repay") {
+      const debt = userDebt !== undefined ? Number(userDebt) / 10 ** asset.decimals : 0
+      const avail = Number(confirmed)
+      base = Math.min(debt > 0 ? debt : 0, !Number.isNaN(avail) ? avail : 0)
     } else if (mode === "deposit") {
       if (fromChain === "Arc_Testnet" && arcUsdcBal !== undefined) {
         base = Number(arcUsdcBal) / 10 ** asset.decimals
@@ -450,8 +454,13 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
             {mode === "deposit" && fromChain === "Arc_Testnet" && (
               <span>Wallet: {formatAmt(arcUsdcBal, asset.decimals)}</span>
             )}
-            {(mode === "spend" || mode === "supply" || mode === "repay") && (
+            {(mode === "spend" || mode === "supply") && (
               <span>Available: {confirmed} USDC</span>
+            )}
+            {mode === "repay" && (
+              <span>
+                Debt: {userDebt !== undefined ? (Number(userDebt) / 10 ** asset.decimals).toFixed(6) : "—"} USDC
+              </span>
             )}
           </div>
           <input
