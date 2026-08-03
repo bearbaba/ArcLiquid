@@ -169,17 +169,20 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       setStep("Switching chain...")
       if (fromChain === "Arc_Testnet" && eth?.request) {
         try {
-          await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x4cf352" }] })
+          await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x4cef52" }] })
         } catch (switchErr: any) {
           if (switchErr?.code === 4902) {
             try {
               await eth.request({
                 method: "wallet_addEthereumChain",
                 params: [{
-                  chainId: "0x4cf352",
+                  chainId: "0x4cef52",
                   chainName: "Arc Testnet",
                   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-                  rpcUrls: ["https://rpc.quicknode.testnet.arc.network"],
+                  rpcUrls: [
+                  ...(import.meta.env.VITE_ALCHEMY_ARC_RPC ? [import.meta.env.VITE_ALCHEMY_ARC_RPC] : []),
+                  "https://rpc.quicknode.testnet.arc.network",
+                ],
                   blockExplorerUrls: ["https://testnet.arcscan.app"],
                 }],
               })
