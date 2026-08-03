@@ -122,6 +122,16 @@ export default function BridgePanel() {
     }
   } catch {}
 
+  const exceedsBalance = (() => {
+    try {
+      const cleanAmt = amount.replace(",", ".").trim()
+      if (!cleanAmt || fromBalance === null || fromBalance === undefined) return false
+      return Number(cleanAmt) > Number(fromBalance) + 1e-12
+    } catch {
+      return false
+    }
+  })()
+
   const handleBridge = async () => {
     if (!isConnected || !address) return toast.error("Connect wallet first")
     if (fromChain === toChain) return toast.error("Choose different chains")

@@ -296,6 +296,23 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     setAmount(((base * pct) / 100).toFixed(6))
   }
 
+  const exceedsAmount = (() => {
+    try {
+      const cleanAmt = amount.replace(",", ".").trim()
+      if (!cleanAmt || Number(cleanAmt) <= 0) return false
+      if (mode === "deposit" && fromChain === "Arc_Testnet" && arcUsdcBal !== undefined) {
+        const bal = Number(arcUsdcBal) / 10 ** asset.decimals
+        return Number(cleanAmt) > bal + 1e-9
+      }
+      if ((mode === "spend" || mode === "supply" || mode === "repay") && confirmed != null) {
+        return Number(cleanAmt) > Number(confirmed) + 1e-9
+      }
+      return false
+    } catch {
+      return false
+    }
+  })()
+
   const onPrimary = () => {
     if (mode === "deposit") return void handleDeposit()
     if (mode === "spend") return void handleSpend()
@@ -462,12 +479,15 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         </div>
 
         {step && <div className="text-xs text-cyan-400">{step}</div>}
+        {exceedsAmount && (
+          <div className="text-xs text-red-400 font-medium">Amount exceeds available balance</div>
+        )}
 
         
 
         <button
           type="button"
-          disabled={!isConnected || !amount || busy}
+          disabled={!isConnected || !amount || busy || exceedsAmount}
           onClick={onPrimary}
           className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2"
         >
