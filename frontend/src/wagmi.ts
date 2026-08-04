@@ -14,7 +14,6 @@ export const arcTestnet = defineChain({
       http: [
         OFFICIAL_RPC,
         ...(PRIVATE_RPC ? [PRIVATE_RPC] : []),
-        'https://rpc.quicknode.testnet.arc.network',
         'https://rpc.drpc.testnet.arc.network',
         'https://rpc.blockdaemon.testnet.arc.network',
         'https://5042002.rpc.thirdweb.com',
@@ -29,7 +28,6 @@ export const arcTestnet = defineChain({
 const rpcList = [
   http(OFFICIAL_RPC, { timeout: 10_000, retryCount: 2 }),
   ...(PRIVATE_RPC ? [http(PRIVATE_RPC, { timeout: 10_000, retryCount: 2 })] : []),
-  http('https://rpc.quicknode.testnet.arc.network', { timeout: 10_000, retryCount: 2 }),
   http('https://rpc.drpc.testnet.arc.network', { timeout: 10_000, retryCount: 2 }),
   http('https://rpc.blockdaemon.testnet.arc.network', { timeout: 10_000, retryCount: 2 }),
   http('https://5042002.rpc.thirdweb.com', { timeout: 10_000, retryCount: 2 }),
