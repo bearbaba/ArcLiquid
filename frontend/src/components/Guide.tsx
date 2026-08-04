@@ -1,32 +1,57 @@
 import { toast } from "sonner"
 import { ASSETS, type AssetId } from "../lib/assets"
 
+const ARC = {
+  chainId: "0x4cef52",
+  chainName: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: ["https://5042002.rpc.thirdweb.com"],
+  blockExplorerUrls: ["https://testnet.arcscan.app"],
+} as const
+
 async function addArc() {
+  const eth = (window as any).ethereum
+  if (!eth?.request) {
+    toast.error("No wallet found")
+    return
+  }
   try {
-    // @ts-ignore
-    await window.ethereum.request({
-      method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId: "0x4cef52",
-          chainName: "Arc Testnet",
-          nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-          rpcUrls: ["https://5042002.rpc.thirdweb.com"],
-          blockExplorerUrls: ["https://testnet.arcscan.app"],
-        },
-      ],
+    await eth.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: ARC.chainId }],
     })
-    toast.success("Arc Testnet added")
+    toast.success("Switched to Arc Testnet")
   } catch (e: any) {
-    toast.error(e?.message || "Failed to add network")
+    if (e?.code === 4902) {
+      try {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [ARC],
+        })
+        toast.success("Arc Testnet added")
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to add network")
+      }
+    } else if (e?.code === 4001) {
+      toast.error("You rejected the request")
+    } else {
+      try {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [ARC],
+        })
+        toast.success("Arc Testnet added")
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to add/switch network")
+      }
+    }
   }
 }
 
 async function importToken(id: AssetId) {
   const a = ASSETS[id]
   try {
-    // @ts-ignore
-    await window.ethereum.request({
+    await (window as any).ethereum.request({
       method: "wallet_watchAsset",
       params: {
         type: "ERC20",
