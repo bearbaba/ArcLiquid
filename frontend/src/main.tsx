@@ -16,14 +16,11 @@ import App from "./App"
 import "./index.css"
 
 const ARC_RPCS = [
-  "https://arc-testnet.g.alchemy.com/v2/hNHcmm45HCm5yIzKbcWt1",
-  ...(import.meta.env.VITE_ALCHEMY_ARC_RPC ? [import.meta.env.VITE_ALCHEMY_ARC_RPC as string] : []),
+  "https://rpc.testnet.arc.network",
   "https://rpc.quicknode.testnet.arc.network",
   "https://rpc.drpc.testnet.arc.network",
   "https://rpc.blockdaemon.testnet.arc.network",
   "https://5042002.rpc.thirdweb.com",
-  "https://rpc.testnet.arc.network",
-  "https://rpc.testnet.arc.io",
 ] as const
 
 const arcTestnet = {

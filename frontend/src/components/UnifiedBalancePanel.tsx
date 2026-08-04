@@ -9,6 +9,7 @@ import { parseUnits, maxUint256 } from "viem"
 import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { getAppKit } from "../lib/circleAppKit"
+import { pushTx, extractTxHash } from "../lib/txHistory"
 import { resolveChainIdentifier } from "@circle-fin/adapter-viem-v2"
 import { ASSETS, formatAmt, formatHealth } from "../lib/assets"
 import { usePoolData } from "../hooks/usePoolData"
@@ -114,7 +115,6 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       staleTime: 30_000,
       retry: 0,
       refetchOnWindowFocus: false,
-      throwOnError: false,
     },
   })
 
@@ -186,7 +186,6 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
                   chainName: "Arc Testnet",
                   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
                   rpcUrls: [
-                  ...(import.meta.env.VITE_ALCHEMY_ARC_RPC ? [import.meta.env.VITE_ALCHEMY_ARC_RPC] : []),
                   "https://rpc.quicknode.testnet.arc.network",
                 ],
                   blockExplorerUrls: ["https://testnet.arcscan.app"],
@@ -210,6 +209,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       })
       console.log("deposit result", result)
       toast.success("Deposit submitted")
+      pushTx("deposit", "Deposit " + clean + " USDC from " + fromChain, extractTxHash(result))
       setAmount("")
       void refreshBalance()
       setTimeout(() => void refreshBalance(), 2500)
@@ -233,7 +233,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     setStep("Spending...")
     try {
       const { kit, adapter } = await getAppKit()
-      await kit.unifiedBalance.spend({
+      const spendResult = await kit.unifiedBalance.spend({
         amount: clean,
         from: { adapter },
         to: {
@@ -243,6 +243,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         },
       })
       toast.success("Spend submitted")
+      pushTx("spend", "Spend " + clean + " USDC to " + spendChain, extractTxHash(spendResult))
       setAmount("")
       void refreshBalance()
       setTimeout(() => void refreshBalance(), 2000)
@@ -305,6 +306,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         args: [value],
       })
       toast.success(mode === "supply" ? "Supply submitted" : "Repay submitted")
+      pushTx(mode, mode + " " + clean + " USDC (from Unified)", hash)
       setAmount("")
     } catch (e: any) {
       console.error(e)

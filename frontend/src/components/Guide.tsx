@@ -8,14 +8,10 @@ async function addArc() {
       method: "wallet_addEthereumChain",
       params: [
         {
-          chainId: "0x4CEF52",
+          chainId: "0x4cef52",
           chainName: "Arc Testnet",
           nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-          rpcUrls: [
-            ...(import.meta.env.VITE_ALCHEMY_ARC_RPC ? [import.meta.env.VITE_ALCHEMY_ARC_RPC] : []),
-            "https://rpc.quicknode.testnet.arc.network",
-            "https://rpc.testnet.arc.network",
-          ],
+          rpcUrls: ["https://rpc.testnet.arc.network"],
           blockExplorerUrls: ["https://testnet.arcscan.app"],
         },
       ],
