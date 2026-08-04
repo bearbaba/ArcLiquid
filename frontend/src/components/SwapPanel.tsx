@@ -20,6 +20,7 @@ import { addPoints, REWARDS } from "../lib/points"
 import { swapAbi } from "../lib/circleKit"
 import TxStatus from "./TxStatus"
 import { pushTx } from "../lib/txHistory"
+import { ArrowDownUp, Settings } from "lucide-react"
 
 const ARC_CHAIN_ID = 5042002
 const FEE_BPS = 4n
@@ -221,9 +222,10 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
             <button
               type="button"
               onClick={() => setShowSettings((v) => !v)}
-              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] text-xs"
+              className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"
+              aria-label="Slippage settings"
             >
-              Settings
+              <Settings size={14} />
             </button>
           </div>
         </div>
@@ -251,19 +253,23 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
               <input
                 type="text"
                 inputMode="decimal"
-                value={(slippageBps / 100).toString()}
-                onChange={(e) => {
-                  const v = e.target.value.replace(",", ".")
+                defaultValue={(slippageBps / 100).toString()}
+                key={showSettings ? "slip-open" : "slip-closed"}
+                onBlur={(e) => {
+                  const v = e.target.value.replace(",", ".").trim()
                   const n = Number(v)
                   if (!Number.isFinite(n) || n < 0) return
-                  const bps = Math.round(n * 100)
-                  if (bps > 5000) return
+                  let bps = Math.round(n * 100)
+                  if (bps < 1) bps = 1
+                  if (bps > 5000) bps = 5000
                   setSlippageBps(bps)
+                  e.target.value = (bps / 100).toString()
                 }}
                 className="field-input w-20 px-2 py-1 text-xs outline-none"
               />
               <span className="text-[11px] text-[var(--text-muted)]">%</span>
             </div>
+            <p className="text-[10px] text-[var(--text-muted)]">Min 0.01% · Max 50%</p>
             <div className="flex justify-between text-[11px] text-[var(--text-muted)]">
               <span>Min received</span>
               <span className="text-[var(--text)]">
@@ -339,9 +345,10 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
               setSwapAmount("")
               reset()
             }}
-            className="w-9 h-9 rounded-xl border border-[var(--border)] text-sm"
+            className="w-9 h-9 rounded-xl border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)] hover:text-emerald-400 hover:border-emerald-500/40"
+            aria-label="Flip tokens"
           >
-            Swap
+            <ArrowDownUp size={16} />
           </button>
         </div>
 

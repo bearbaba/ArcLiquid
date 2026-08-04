@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Activity, Percent, AlertTriangle } from "lucide-react"
+import { TrendingUp, TrendingDown, Activity, Percent, AlertTriangle, Landmark, ArrowLeftRight, Briefcase, Send, Layers, User } from "lucide-react"
 import {
   ASSETS,
   PAIR_CONFIG,
@@ -230,12 +230,12 @@ export default function Dashboard({ assetId, setAssetId, setPage, setLendTab }: 
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { id: "lend" as NavPage, label: "Lend", desc: "Supply · Borrow" },
-          { id: "swap" as NavPage, label: "Swap", desc: "Trade stables" },
-          { id: "portfolio" as NavPage, label: "Portfolio", desc: "Positions" },
-          { id: "payments" as NavPage, label: "Payments", desc: "Send tokens" },
-          { id: "unified" as NavPage, label: "Unified", desc: "Balance · Lend" },
-          { id: "profile" as NavPage, label: "Profile", desc: "Points & missions" },
+          { id: "lend" as NavPage, label: "Lend", desc: "Supply · Borrow", Icon: Landmark },
+          { id: "swap" as NavPage, label: "Swap", desc: "Trade stables", Icon: ArrowLeftRight },
+          { id: "portfolio" as NavPage, label: "Portfolio", desc: "Positions", Icon: Briefcase },
+          { id: "payments" as NavPage, label: "Payments", desc: "Send tokens", Icon: Send },
+          { id: "unified" as NavPage, label: "Unified", desc: "Balance · Lend", Icon: Layers },
+          { id: "profile" as NavPage, label: "Profile", desc: "Points & missions", Icon: User },
         ].map((m) => (
           <button
             key={m.id}
@@ -243,8 +243,11 @@ export default function Dashboard({ assetId, setAssetId, setPage, setLendTab }: 
             onClick={() => setPage(m.id)}
             className="text-left rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 hover:border-emerald-500/40 transition"
           >
-            <div className="font-semibold text-sm text-[var(--text)]">{m.label}</div>
-            <div className="text-xs text-[var(--text-muted)] mt-1">{m.desc}</div>
+            <div className="flex items-center gap-2">
+              <m.Icon size={16} className="text-emerald-400 shrink-0" />
+              <div className="font-semibold text-sm text-[var(--text)]">{m.label}</div>
+            </div>
+            <div className="text-xs text-[var(--text-muted)] mt-1 pl-6">{m.desc}</div>
           </button>
         ))}
       </div>
