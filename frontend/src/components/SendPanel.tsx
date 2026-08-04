@@ -13,7 +13,6 @@ import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
 import { pushTx, getTxHistory } from "../lib/txHistory"
 import { ASSETS, formatAmt, pctOfBalance } from "../lib/assets"
-import { getAppKit } from "../lib/circleAppKit"
 
 const ARC_CHAIN_ID = 5042002
 type Token = "USDC" | "EURC" | "CIRBTC"
@@ -55,7 +54,7 @@ export default function SendPanel() {
 
   const isWrongNetwork = isConnected && chainId !== ARC_CHAIN_ID
   const asset = ASSETS[token]
-  const useKit = token === "USDC"
+  const useKit = false
 
   const { data: bal, refetch: refetchBal } = useReadContract({
     address: asset.address,
@@ -256,7 +255,7 @@ export default function SendPanel() {
         </div>
         <div className="flex justify-between text-[var(--text-muted)]">
           <span>USDC</span>
-          <span className="text-[var(--text)]">Circle App Kit · kit.send</span>
+          <span className="text-[var(--text)]">ERC-20 transfer</span>
         </div>
         <div className="flex justify-between text-[var(--text-muted)]">
           <span>EURC / cirBTC</span>

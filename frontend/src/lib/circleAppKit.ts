@@ -5,18 +5,15 @@ export const FEE_RECIPIENT = "0xe89c45ecae19ff852ec1724c85f193ae12ed0c0a" as con
 
 export async function getAppKit() {
   if (typeof window === "undefined" || !(window as any).ethereum) {
-    throw new Error("No browser wallet found")
+    throw new Error("No browser wallet found. Open MetaMask.")
   }
-
-  // Luôn tạo adapter mới — tránh stale khi đổi ví / chain
+  await (window as any).ethereum.request({ method: "eth_requestAccounts" }).catch(() => {
+    throw new Error("Wallet connection rejected")
+  })
   const adapter = await createViemAdapterFromProvider({
     provider: (window as any).ethereum,
   })
-
-  const kit = new AppKit()
-  return { kit, adapter }
+  return { kit: new AppKit(), adapter }
 }
 
-export function resetAppKit() {
-  // no-op (giữ API cũ nếu chỗ khác còn gọi)
-}
+export function resetAppKit() {}
