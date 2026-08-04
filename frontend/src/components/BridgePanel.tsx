@@ -161,11 +161,26 @@ export default function BridgePanel() {
         amount: clean,
       })
 
+      const r = result as any
+      console.log("bridge result", r)
+
+      if (r?.state === "error" || r?.status === "error" || r?.error) {
+        const errMsg =
+          r?.error?.message ||
+          r?.message ||
+          r?.reason ||
+          (typeof r?.error === "string" ? r.error : null) ||
+          "Bridge failed (Kit returned error)"
+        toast.error(String(errMsg).slice(0, 200))
+        return
+      }
+
       const hash =
-        (result as any)?.hash ||
-        (result as any)?.transactionHash ||
-        (result as any)?.txHash ||
-        (result as any)?.steps?.find((s: any) => s?.txHash)?.txHash
+        r?.hash ||
+        r?.transactionHash ||
+        r?.txHash ||
+        r?.steps?.find((s: any) => s?.txHash || s?.hash)?.txHash ||
+        r?.steps?.find((s: any) => s?.txHash || s?.hash)?.hash
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
@@ -181,8 +196,8 @@ export default function BridgePanel() {
           })
         }, 1000)
       } else {
-        console.warn("Bridge result without tx hash:", result)
-        toast.error("No transaction hash — check MetaMask activity or try again")
+        console.warn("Bridge result without tx hash:", r)
+        toast.error("Bridge incomplete — open MetaMask and confirm all prompts, then try again")
       }
     } catch (err: any) {
       console.error(err)
