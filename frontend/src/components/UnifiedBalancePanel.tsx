@@ -109,6 +109,13 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && fromChain === "Arc_Testnet",
+      staleTime: 30_000,
+      retry: 0,
+      refetchOnWindowFocus: false,
+      throwOnError: false,
+    },
   })
 
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
@@ -135,8 +142,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
       setConfirmed(balances?.totalConfirmedBalance ?? "0")
       setPending(balances?.totalPendingBalance ?? "0")
     } catch (e: any) {
-      console.error(e)
-      toast.error(e?.shortMessage || e?.message || "Failed to load balance")
+      console.warn("unified balance refresh", e)
     } finally {
       setRefreshing(false)
     }
