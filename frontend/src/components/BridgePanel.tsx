@@ -11,10 +11,10 @@ import { ASSETS } from "../lib/assets"
 
 type ChainId = "Arc_Testnet" | "Ethereum_Sepolia" | "Base_Sepolia"
 
-const CHAINS: { id: ChainId; label: string }[] = [
-  { id: "Arc_Testnet", label: "Arc Testnet" },
-  { id: "Ethereum_Sepolia", label: "Ethereum Sepolia" },
-  { id: "Base_Sepolia", label: "Base Sepolia" },
+const CHAINS: { id: ChainId; label: string; chainIdHex: string }[] = [
+  { id: "Arc_Testnet", label: "Arc Testnet", chainIdHex: "0x4cef52" },
+  { id: "Ethereum_Sepolia", label: "Ethereum Sepolia", chainIdHex: "0xaa36a7" },
+  { id: "Base_Sepolia", label: "Base Sepolia", chainIdHex: "0x14a34" },
 ]
 
 const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
@@ -25,7 +25,7 @@ const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
 
 const RPC_BY_CHAIN: Record<ChainId, string> = {
   Arc_Testnet: "https://5042002.rpc.thirdweb.com",
-  Ethereum_Sepolia: "https://rpc.sepolia.org",
+  Ethereum_Sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
   Base_Sepolia: "https://sepolia.base.org",
 }
 
@@ -42,7 +42,7 @@ const erc20Abi = [
 async function fetchUsdcBalance(chain: ChainId, address: `0x${string}`) {
   try {
     const client = createPublicClient({
-      transport: http(RPC_BY_CHAIN[chain], { timeout: 10_000 }),
+      transport: http(RPC_BY_CHAIN[chain], { timeout: 12_000 }),
     })
     const bal = await client.readContract({
       address: USDC_BY_CHAIN[chain],
@@ -56,10 +56,24 @@ async function fetchUsdcBalance(chain: ChainId, address: `0x${string}`) {
   }
 }
 
+async function switchToChain(chainIdHex: string) {
+  const provider = (window as any).ethereum
+  if (!provider) throw new Error("No wallet")
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainIdHex }],
+    })
+  } catch (e: any) {
+    if (e?.code === 4902) throw new Error("Please add the source network to your wallet first")
+    throw e
+  }
+}
+
 export default function BridgePanel() {
   const { address, isConnected } = useAccount()
-  const [fromChain, setFromChain] = useState<ChainId>("Arc_Testnet")
-  const [toChain, setToChain] = useState<ChainId>("Ethereum_Sepolia")
+  const [fromChain, setFromChain] = useState<ChainId>("Ethereum_Sepolia")
+  const [toChain, setToChain] = useState<ChainId>("Arc_Testnet")
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
@@ -105,7 +119,7 @@ export default function BridgePanel() {
   const fromBalance =
     balances[fromChain] ??
     (fromChain === "Arc_Testnet" && arcBal !== undefined
-      ? formatUnits(arcBal as bigint, ASSETS.USDC.decimals)
+      ? formatUnits(arcBal as bigint, 6)
       : null)
 
   const setPercent = (pct: number) => {
@@ -114,7 +128,6 @@ export default function BridgePanel() {
     if (Number.isNaN(v)) return
     setAmount(v.toFixed(6))
   }
-
 
   const exceedsBalance = (() => {
     try {
@@ -136,6 +149,11 @@ export default function BridgePanel() {
     setLoading(true)
     setTxHash(undefined)
     try {
+      const source = CHAINS.find((c) => c.id === fromChain)
+      if (source) {
+        await switchToChain(source.chainIdHex)
+      }
+
       const { kit, adapter } = await getAppKit()
       const result = await kit.bridge({
         from: { adapter, chain: fromChain },
@@ -143,11 +161,21 @@ export default function BridgePanel() {
         amount: clean,
       })
 
+      const anyResult = result as any
+      if (anyResult?.state === "error") {
+        const msg =
+          anyResult?.error?.message ||
+          anyResult?.message ||
+          anyResult?.error ||
+          "Bridge failed"
+        throw new Error(String(msg))
+      }
+
       const hash =
-        (result as any)?.hash ||
-        (result as any)?.transactionHash ||
-        (result as any)?.txHash ||
-        (result as any)?.steps?.find((s: any) => s?.txHash)?.txHash
+        anyResult?.hash ||
+        anyResult?.transactionHash ||
+        anyResult?.txHash ||
+        anyResult?.steps?.find((s: any) => s?.txHash)?.txHash
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
@@ -156,7 +184,7 @@ export default function BridgePanel() {
         pushTx("bridge", "Bridge " + clean + " USDC " + fromChain + " -> " + toChain, hash)
         setAmount("")
         void refreshAllBalances()
-        setTimeout(() => void refreshAllBalances(), 3000)
+        setTimeout(() => void refreshAllBalances(), 4000)
       } else {
         console.warn("Bridge result without tx hash:", result)
         toast.error("Bridge not confirmed — check wallet popup or try again")
@@ -167,7 +195,7 @@ export default function BridgePanel() {
       if (/user rejected|denied|reject/i.test(String(msg))) {
         toast.error("You rejected the transaction")
       } else {
-        toast.error(msg)
+        toast.error(String(msg).slice(0, 120))
       }
     } finally {
       setLoading(false)
@@ -185,7 +213,6 @@ export default function BridgePanel() {
               onClick={() => void refreshAllBalances()}
               disabled={refreshing || !isConnected}
               className="p-1.5 rounded-lg text-[var(--text-muted)] disabled:opacity-40"
-              aria-label="Refresh balances"
             >
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </button>
@@ -194,7 +221,7 @@ export default function BridgePanel() {
             <div key={c.id} className="flex justify-between text-xs">
               <span className="text-[var(--text-muted)]">{c.label}</span>
               <span className="text-[var(--text)] font-medium">
-                {balances[c.id] !== null && balances[c.id] !== undefined
+                {balances[c.id] != null
                   ? `${Number(balances[c.id]).toFixed(4)} USDC`
                   : isConnected
                     ? "—"
@@ -252,7 +279,7 @@ export default function BridgePanel() {
             <span>Amount (USDC)</span>
             {isConnected && (
               <span className="text-[var(--text)]">
-                Bal: {fromBalance !== null ? Number(fromBalance).toFixed(4) : "—"} USDC
+                Bal: {fromBalance != null ? Number(fromBalance).toFixed(4) : "—"} USDC
               </span>
             )}
           </div>
@@ -285,7 +312,7 @@ export default function BridgePanel() {
         )}
         <button
           type="button"
-          onClick={handleBridge}
+          onClick={() => void handleBridge()}
           disabled={loading || !isConnected || !amount || exceedsBalance}
           className="btn-action w-full py-3 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2"
         >
@@ -319,8 +346,7 @@ export default function BridgePanel() {
           </span>
         </div>
         <p className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border)]">
-          Cross-chain USDC transfers via Circle. Confirm the source network in your
-          wallet when prompted.
+          Switch wallet to the source chain when prompted. Prefer Sepolia → Arc if Arc → Sepolia fails.
         </p>
       </div>
     </div>
