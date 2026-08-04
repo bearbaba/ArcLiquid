@@ -19,9 +19,9 @@ type Mode = "deposit" | "spend" | "supply" | "repay"
 type ChainId = "Arc_Testnet" | "Ethereum_Sepolia" | "Base_Sepolia"
 
 const CHAINS: { id: ChainId; label: string }[] = [
-  { id: "Base_Sepolia", label: "Base Sepolia" },
-  { id: "Ethereum_Sepolia", label: "Ethereum Sepolia" },
   { id: "Arc_Testnet", label: "Arc Testnet" },
+  { id: "Ethereum_Sepolia", label: "Ethereum Sepolia" },
+  { id: "Base_Sepolia", label: "Base Sepolia" },
 ]
 
 const poolAbi = [
@@ -208,7 +208,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         token: "USDC",
       })
       console.log("deposit result", result)
-      toast.success("Deposit submitted")
+      toast.success(`Deposit ${clean} USDC · ${fromChain.replaceAll("_", " ")}`)
       pushTx("deposit", "Deposit " + clean + " USDC from " + fromChain, extractTxHash(result))
       setAmount("")
       void refreshBalance()
@@ -242,7 +242,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
           recipientAddress: recipient,
         },
       })
-      toast.success("Spend submitted")
+      toast.success(`Spend ${clean} USDC · ${spendChain.replaceAll("_", " ")}`)
       pushTx("spend", "Spend " + clean + " USDC to " + spendChain, extractTxHash(spendResult))
       setAmount("")
       void refreshBalance()
@@ -285,7 +285,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     setLoading(true)
     try {
       await spendToSelf(clean)
-      toast.success("Spend submitted — approve then " + mode + " if needed")
+      toast.success(`Spend ${clean} USDC to Arc · then ${mode}`)
       if (!allowance || allowance < value) {
         setStep("Approve...")
         writeContract({
@@ -305,7 +305,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         functionName: mode === "supply" ? "supply" : "repay",
         args: [value],
       })
-      toast.success(mode === "supply" ? "Supply submitted" : "Repay submitted")
+      toast.success(`${mode} ${clean} USDC · Unified`)
       pushTx(mode, mode + " " + clean + " USDC (from Unified)", hash)
       setAmount("")
     } catch (e: any) {

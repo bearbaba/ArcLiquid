@@ -178,7 +178,7 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
       { address: poolAddr, abi: poolAbi, ...calls[lendTab] },
       {
         onSuccess: (txHash) => {
-          toast.success(`${lendTab} submitted`)
+          toast.success(`${lendTab} ${amount} ${asset.symbol}`)
           addPoints(REWARDS[lendTab] || 10)
           if (txHash) pushTx(lendTab, lendTab + " " + amount + " " + asset.symbol, txHash)
           setAmount("")

@@ -72,8 +72,8 @@ async function switchToChain(chainIdHex: string) {
 
 export default function BridgePanel() {
   const { address, isConnected } = useAccount()
-  const [fromChain, setFromChain] = useState<ChainId>("Ethereum_Sepolia")
-  const [toChain, setToChain] = useState<ChainId>("Arc_Testnet")
+  const [fromChain, setFromChain] = useState<ChainId>("Arc_Testnet")
+  const [toChain, setToChain] = useState<ChainId>("Ethereum_Sepolia")
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
@@ -179,7 +179,7 @@ export default function BridgePanel() {
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
-        toast.success("Bridge submitted")
+        toast.success(`Bridged ${clean} USDC · ${fromChain.replaceAll("_", " ")} → ${toChain.replaceAll("_", " ")}`)
         addPoints(REWARDS.bridge)
         pushTx("bridge", "Bridge " + clean + " USDC " + fromChain + " -> " + toChain, hash)
         setAmount("")

@@ -7,7 +7,7 @@ const SWAP_EVENT = parseAbiItem(
 )
 
 const client = createPublicClient({
-  transport: http("https://rpc.testnet.arc.network"),
+  transport: http("https://5042002.rpc.thirdweb.com"),
 })
 
 const FEE = 0.0004

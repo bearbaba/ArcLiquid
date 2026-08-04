@@ -122,7 +122,7 @@ export async function ensureArcRpc() {
               symbol: 'USDC',
               decimals: 18,
             },
-            rpcUrls: ['https://rpc.testnet.arc.network'],
+            rpcUrls: ['https://5042002.rpc.thirdweb.com'],
             blockExplorerUrls: ['https://testnet.arcscan.app'],
           },
         ],

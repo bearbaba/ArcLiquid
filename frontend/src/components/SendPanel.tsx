@@ -83,7 +83,7 @@ export default function SendPanel() {
 
   useEffect(() => {
     if (isSuccess) {
-      toast.success("Transfer successful")
+      toast.success(`Sent ${amount} ${token}`)
       addPoints(REWARDS.send)
       if (hash) pushTx("send", `Send ${amount || ""} ${token}`, hash)
       setAmount("")

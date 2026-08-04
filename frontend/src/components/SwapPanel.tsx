@@ -177,7 +177,7 @@ export default function SwapPanel({ setPage }: { setPage?: (p: any) => void }) {
       },
       {
         onSuccess: (txHash) => {
-          toast.success("Swap submitted")
+          toast.success(`Swapped ${swapAmount} ${swapFrom} → ${swapTo}`)
           addPoints(REWARDS.swap)
           if (txHash) {
             pushTx(

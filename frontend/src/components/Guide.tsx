@@ -11,7 +11,7 @@ async function addArc() {
           chainId: "0x4cef52",
           chainName: "Arc Testnet",
           nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-          rpcUrls: ["https://rpc.testnet.arc.network"],
+          rpcUrls: ["https://5042002.rpc.thirdweb.com"],
           blockExplorerUrls: ["https://testnet.arcscan.app"],
         },
       ],
