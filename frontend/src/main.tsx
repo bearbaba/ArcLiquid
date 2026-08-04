@@ -16,11 +16,9 @@ import App from "./App"
 import "./index.css"
 
 const ARC_RPCS = [
-  "https://rpc.quicknode.testnet.arc.network",
-  "https://rpc.drpc.testnet.arc.network",
+  "https://5042002.rpc.thirdweb.com",
   "https://rpc.blockdaemon.testnet.arc.network",
-  "https://5042002.rpc.thirdweb.com",
-  "https://5042002.rpc.thirdweb.com",
+  "https://rpc.drpc.testnet.arc.network",
 ] as const
 
 const arcTestnet = {

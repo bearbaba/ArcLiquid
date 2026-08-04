@@ -186,7 +186,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
                   chainName: "Arc Testnet",
                   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
                   rpcUrls: [
-                  "https://rpc.quicknode.testnet.arc.network",
+                  "https://5042002.rpc.thirdweb.com",
                 ],
                   blockExplorerUrls: ["https://testnet.arcscan.app"],
                 }],
