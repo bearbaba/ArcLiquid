@@ -9,9 +9,8 @@ export const arcTestnet = defineChain({
   rpcUrls: {
     default: {
       http: [
-        'https://rpc.testnet.arc.network',
-        'https://rpc.blockdaemon.testnet.arc.network',
         'https://5042002.rpc.thirdweb.com',
+        'https://rpc.blockdaemon.testnet.arc.network',
         'https://rpc.drpc.testnet.arc.network',
       ],
     },
@@ -27,10 +26,9 @@ export const config = getDefaultConfig({
   chains: [arcTestnet],
   transports: {
     [arcTestnet.id]: fallback([
-      http('https://rpc.testnet.arc.network', { timeout: 8000, retryCount: 1 }),
-      http('https://rpc.blockdaemon.testnet.arc.network', { timeout: 8000, retryCount: 1 }),
-      http('https://5042002.rpc.thirdweb.com', { timeout: 8000, retryCount: 1 }),
-      http('https://rpc.drpc.testnet.arc.network', { timeout: 8000, retryCount: 1 }),
+      http('https://5042002.rpc.thirdweb.com', { timeout: 12000, retryCount: 2 }),
+      http('https://rpc.blockdaemon.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
+      http('https://rpc.drpc.testnet.arc.network', { timeout: 12000, retryCount: 2 }),
     ]),
   },
   ssr: false,

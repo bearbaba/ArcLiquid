@@ -24,7 +24,7 @@ const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
 }
 
 const RPC_BY_CHAIN: Record<ChainId, string> = {
-  Arc_Testnet: "https://rpc.quicknode.testnet.arc.network",
+  Arc_Testnet: "https://5042002.rpc.thirdweb.com",
   Ethereum_Sepolia: "https://rpc.sepolia.org",
   Base_Sepolia: "https://sepolia.base.org",
 }
