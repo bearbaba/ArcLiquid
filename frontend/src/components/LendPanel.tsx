@@ -106,7 +106,7 @@ export default function LendPanel({ assetId, setAssetId, lendTab, setLendTab }: 
   const { writeContract, data: hash, isPending, reset } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
-  const needApprove = lendTab === "supply" || lendTab === "repay"
+  const needApprove = lendTab === "supply"
   const parsedAmount = amount ? parseUnits(amount, asset.decimals) : 0n
   const isWrongNetwork = isConnected && chainId !== ARC_CHAIN_ID
 

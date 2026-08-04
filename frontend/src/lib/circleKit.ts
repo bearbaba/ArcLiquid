@@ -102,7 +102,7 @@ export async function ensureArcRpc() {
   const provider = (window as any).ethereum
   if (!provider) throw new Error('No wallet')
 
-  const chainId = '0x4cf1a2'
+  const chainId = '0x4cef52'
 
   try {
     await provider.request({
@@ -117,7 +117,11 @@ export async function ensureArcRpc() {
           {
             chainId,
             chainName: 'Arc Testnet',
-            nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+            nativeCurrency: {
+              name: 'USDC',
+              symbol: 'USDC',
+              decimals: 18,
+            },
             rpcUrls: ['https://rpc.testnet.arc.network'],
             blockExplorerUrls: ['https://testnet.arcscan.app'],
           },
