@@ -43,7 +43,6 @@ export default function SendPanel() {
   const [token, setToken] = useState<Token>("USDC")
   const [to, setTo] = useState("")
   const [amount, setAmount] = useState("")
-  const [kitLoading, setKitLoading] = useState(false)
   const [historyTick, setHistoryTick] = useState(0)
 
   const history =
@@ -54,7 +53,6 @@ export default function SendPanel() {
 
   const isWrongNetwork = isConnected && chainId !== ARC_CHAIN_ID
   const asset = ASSETS[token]
-  const useKit = false
 
   const { data: bal, refetch: refetchBal } = useReadContract({
     address: asset.address,
@@ -66,13 +64,11 @@ export default function SendPanel() {
 
   const {
     writeContract,
-    data: erc20Hash,
-    isPending: erc20Pending,
+    data: hash,
+    isPending,
     error: erc20Error,
   } = useWriteContract()
 
-  const hash = erc20Hash
-  const isPending = erc20Pending || kitLoading
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
   let exceedsBalance = false
@@ -113,31 +109,6 @@ export default function SendPanel() {
     const clean = amount.replace(",", ".").trim()
     if (!clean || Number(clean) <= 0) return toast.error("Enter a valid amount")
     if (exceedsBalance) return toast.error("Amount exceeds balance")
-
-    if (useKit) {
-      setKitLoading(true)
-      try {
-        const { kit, adapter } = await getAppKit()
-        await kit.send({
-          from: { adapter, chain: "Arc_Testnet" },
-          to,
-          amount: clean,
-          token: "USDC",
-        })
-        toast.success("Send submitted")
-        addPoints(REWARDS.send)
-        pushTx("send", `Send ${clean} ${token} → ${to.slice(0, 6)}...${to.slice(-4)}`)
-        setAmount("")
-        setTo("")
-        setHistoryTick((n) => n + 1)
-      } catch (e: any) {
-        console.error(e)
-        toast.error(e?.message || "Send failed")
-      } finally {
-        setKitLoading(false)
-      }
-      return
-    }
 
     let value: bigint
     try {
@@ -254,11 +225,7 @@ export default function SendPanel() {
           <span className="text-[var(--text)]">Arc Testnet</span>
         </div>
         <div className="flex justify-between text-[var(--text-muted)]">
-          <span>USDC</span>
-          <span className="text-[var(--text)]">ERC-20 transfer</span>
-        </div>
-        <div className="flex justify-between text-[var(--text-muted)]">
-          <span>EURC / cirBTC</span>
+          <span>Token</span>
           <span className="text-[var(--text)]">ERC-20 transfer</span>
         </div>
         <div className="flex justify-between text-[var(--text-muted)]">
