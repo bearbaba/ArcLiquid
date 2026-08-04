@@ -4,6 +4,7 @@ import { createPublicClient, http, formatUnits } from "viem"
 import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { getAppKit } from "../lib/circleAppKit"
+import { switchToArc } from "../lib/ensureArc"
 import TxStatus from "./TxStatus"
 import { addPoints, REWARDS } from "../lib/points"
 import { pushTx } from "../lib/txHistory"
@@ -126,7 +127,10 @@ export default function BridgePanel() {
     }
   })()
 
+  const [step, setStep] = useState("")
+
   const handleBridge = async () => {
+    if (loading) return
     if (!isConnected || !address) return toast.error("Connect wallet first")
     if (fromChain === toChain) return toast.error("Choose different chains")
     const clean = amount.replace(",", ".").trim()
@@ -135,8 +139,22 @@ export default function BridgePanel() {
 
     setLoading(true)
     setTxHash(undefined)
+    setStep("Opening wallet...")
     try {
+      const eth = (window as any).ethereum
+      if (!eth?.request) throw new Error("No wallet found")
+
+      // Wake MetaMask before Kit (avoids 3-4 dead clicks)
+      try {
+        await eth.request({ method: "eth_requestAccounts" })
+      } catch {
+        throw new Error("Wallet connection rejected")
+      }
+
+      setStep("Preparing bridge...")
       const { kit, adapter } = await getAppKit()
+
+      setStep("Confirm in MetaMask...")
       const result = await kit.bridge({
         from: { adapter, chain: fromChain },
         to: { adapter, chain: toChain },
@@ -157,9 +175,14 @@ export default function BridgePanel() {
         setAmount("")
         void refreshAllBalances()
         setTimeout(() => void refreshAllBalances(), 3000)
+        setTimeout(() => {
+          void switchToArc({ silent: true }).then((ok) => {
+            if (ok) toast.message("Back on Arc — Swap / Lend ready")
+          })
+        }, 1000)
       } else {
         console.warn("Bridge result without tx hash:", result)
-        toast.error("Bridge not confirmed — check wallet popup or try again")
+        toast.error("No transaction hash — check MetaMask activity or try again")
       }
     } catch (err: any) {
       console.error(err)
@@ -167,10 +190,11 @@ export default function BridgePanel() {
       if (/user rejected|denied|reject/i.test(String(msg))) {
         toast.error("You rejected the transaction")
       } else {
-        toast.error(msg)
+        toast.error(String(msg).slice(0, 180))
       }
     } finally {
       setLoading(false)
+      setStep("")
     }
   }
 
@@ -292,7 +316,7 @@ export default function BridgePanel() {
           {loading ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              Bridging...
+              {step || "Bridging..."}
             </>
           ) : (
             "Bridge USDC"
