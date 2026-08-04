@@ -208,7 +208,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         token: "USDC",
       })
       console.log("deposit result", result)
-      toast.success(`Deposit ${clean} USDC · ${fromChain.replaceAll("_", " ")}`)
+      toast.success(`Deposit ${clean} USDC · ${fromChain.split("_").join(" ")}`)
       pushTx("deposit", "Deposit " + clean + " USDC from " + fromChain, extractTxHash(result))
       setAmount("")
       void refreshBalance()
@@ -242,7 +242,7 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
           recipientAddress: recipient,
         },
       })
-      toast.success(`Spend ${clean} USDC · ${spendChain.replaceAll("_", " ")}`)
+      toast.success(`Spend ${clean} USDC · ${spendChain.split("_").join(" ")}`)
       pushTx("spend", "Spend " + clean + " USDC to " + spendChain, extractTxHash(spendResult))
       setAmount("")
       void refreshBalance()

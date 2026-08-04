@@ -179,7 +179,7 @@ export default function BridgePanel() {
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
-        toast.success(`Bridged ${clean} USDC · ${fromChain.replaceAll("_", " ")} → ${toChain.replaceAll("_", " ")}`)
+        toast.success(`Bridged ${clean} USDC · ${fromChain.split("_").join(" ")} → ${toChain.split("_").join(" ")}`)
         addPoints(REWARDS.bridge)
         pushTx("bridge", "Bridge " + clean + " USDC " + fromChain + " -> " + toChain, hash)
         setAmount("")
