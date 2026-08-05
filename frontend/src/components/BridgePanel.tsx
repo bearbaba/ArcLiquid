@@ -17,6 +17,18 @@ const CHAINS: { id: ChainId; label: string; chainIdHex: string }[] = [
   { id: "Base_Sepolia", label: "Base Sepolia", chainIdHex: "0x14a34" },
 ]
 
+const CHAIN_NUM: Record<ChainId, number> = {
+  Arc_Testnet: 5042002,
+  Ethereum_Sepolia: 11155111,
+  Base_Sepolia: 84532,
+}
+
+const EXPLORER: Record<ChainId, string> = {
+  Arc_Testnet: "https://testnet.arcscan.app",
+  Ethereum_Sepolia: "https://sepolia.etherscan.io",
+  Base_Sepolia: "https://sepolia.basescan.org",
+}
+
 const USDC_BY_CHAIN: Record<ChainId, `0x${string}`> = {
   Arc_Testnet: ASSETS.USDC.address,
   Ethereum_Sepolia: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
@@ -179,7 +191,9 @@ export default function BridgePanel() {
 
       if (hash && typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash as `0x${string}`)
-        toast.success(`Bridged ${clean} USDC · ${fromChain.split("_").join(" ")} → ${toChain.split("_").join(" ")}`)
+        toast.success(
+          `Bridged ${clean} USDC · ${fromChain.split("_").join(" ")} → ${toChain.split("_").join(" ")}`
+        )
         addPoints(REWARDS.bridge)
         pushTx("bridge", "Bridge " + clean + " USDC " + fromChain + " -> " + toChain, hash)
         setAmount("")
@@ -206,7 +220,7 @@ export default function BridgePanel() {
     <div className="grid lg:grid-cols-2 gap-5">
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-4">
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex justify-between items-center">
             <div className="text-xs font-medium text-[var(--text)]">USDC Balances</div>
             <button
               type="button"
@@ -326,7 +340,11 @@ export default function BridgePanel() {
           )}
         </button>
 
-        <TxStatus hash={txHash} />
+        <TxStatus
+          hash={txHash}
+          chainId={CHAIN_NUM[fromChain]}
+          explorerBase={EXPLORER[fromChain]}
+        />
       </div>
 
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 space-y-3 text-sm">

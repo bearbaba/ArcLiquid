@@ -3,11 +3,19 @@ import { ExternalLink, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
 interface TxStatusProps {
   hash?: `0x${string}`
+  chainId?: number
+  explorerBase?: string
 }
 
-export default function TxStatus({ hash }: TxStatusProps) {
+export default function TxStatus({
+  hash,
+  chainId,
+  explorerBase = "https://testnet.arcscan.app",
+}: TxStatusProps) {
   const { isLoading, isSuccess, isError } = useWaitForTransactionReceipt({
     hash,
+    chainId,
+    query: { enabled: !!hash },
   })
 
   if (!hash) return null
@@ -26,7 +34,7 @@ export default function TxStatus({ hash }: TxStatusProps) {
         </span>
       </div>
       <a
-        href={`https://testnet.arcscan.app/tx/${hash}`}
+        href={`${explorerBase}/tx/${hash}`}
         target="_blank"
         rel="noreferrer"
         className="mt-2 inline-flex items-center gap-1.5 text-sm text-blue-400 hover:underline"
