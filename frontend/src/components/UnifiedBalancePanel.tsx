@@ -170,37 +170,40 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
     try {
       const eth = (window as any).ethereum
       if (eth?.request) {
-        try { await eth.request({ method: "eth_requestAccounts" }) } catch {}
+        try {
+          await eth.request({ method: "eth_requestAccounts" })
+        } catch {}
       }
       setStep("Switching chain...")
-      if (fromChain === "Arc_Testnet" && eth?.request) {
+      const HEX: Record<string, string> = {
+        Arc_Testnet: "0x4cef52",
+        Ethereum_Sepolia: "0xaa36a7",
+        Base_Sepolia: "0x14a34",
+      }
+      const hex = HEX[fromChain]
+      if (hex && eth?.request) {
         try {
-          await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x4cef52" }] })
+          await eth.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: hex }],
+          })
         } catch (switchErr: any) {
           if (switchErr?.code === 4902) {
-            try {
-              await eth.request({
-                method: "wallet_addEthereumChain",
-                params: [{
-                  chainId: "0x4cef52",
-                  chainName: "Arc Testnet",
-                  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-                  rpcUrls: [
-                  "https://5042002.rpc.thirdweb.com",
-                ],
-                  blockExplorerUrls: ["https://testnet.arcscan.app"],
-                }],
-              })
-            } catch {}
+            toast.error("Add the source network in MetaMask first")
+            setLoading(false)
+            setStep("")
+            return
           }
+          throw switchErr
         }
-        await new Promise((r) => setTimeout(r, 400))
       }
       const { kit, adapter } = await getAppKit()
       try {
         const chain = resolveChainIdentifier(fromChain)
         if (chain && typeof adapter.ensureChain === "function") await adapter.ensureChain(chain)
-      } catch (e) { console.warn("ensureChain", e) }
+      } catch (e) {
+        console.warn("ensureChain", e)
+      }
       setStep("Confirm in wallet...")
       const result = await kit.unifiedBalance.deposit({
         from: { adapter, chain: fromChain },
@@ -526,8 +529,6 @@ export default function UnifiedBalancePanel({ setPage, setLendTab, setAssetId }:
         {exceedsAmount && (
           <div className="text-xs text-red-400 font-medium">Amount exceeds available balance</div>
         )}
-
-        
 
         <button
           type="button"
