@@ -4,10 +4,19 @@ import { createPublicClient, http } from "viem"
 
 export const FEE_RECIPIENT = "0xe89c45ecae19ff852ec1724c85f193ae12ed0c0a" as const
 
-const RPC_BY_CHAIN: Record<string, string> = {
+const RPC_BY_NAME: Record<string, string> = {
   Arc_Testnet: "https://5042002.rpc.thirdweb.com",
   Ethereum_Sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
   Base_Sepolia: "https://sepolia.base.org",
+  "Ethereum Sepolia": "https://ethereum-sepolia-rpc.publicnode.com",
+  "Base Sepolia": "https://sepolia.base.org",
+  Sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
+}
+
+const RPC_BY_ID: Record<number, string> = {
+  5042002: "https://5042002.rpc.thirdweb.com",
+  11155111: "https://ethereum-sepolia-rpc.publicnode.com",
+  84532: "https://sepolia.base.org",
 }
 
 export async function getAppKit() {
@@ -21,8 +30,13 @@ export async function getAppKit() {
   const adapter = await createViemAdapterFromProvider({
     provider: (window as any).ethereum,
     getPublicClient: ({ chain }: any) => {
-      const name = chain?.name || "Arc_Testnet"
-      const rpcUrl = RPC_BY_CHAIN[name] || RPC_BY_CHAIN.Arc_Testnet
+      const id = Number(chain?.id)
+      const name = String(chain?.name || "")
+      const rpcUrl =
+        RPC_BY_ID[id] ||
+        RPC_BY_NAME[name] ||
+        RPC_BY_NAME[name.replace(/\s+/g, "_")] ||
+        "https://ethereum-sepolia-rpc.publicnode.com"
       return createPublicClient({
         chain,
         transport: http(rpcUrl, { timeout: 15_000, retryCount: 2 }),
