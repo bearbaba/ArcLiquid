@@ -5,8 +5,8 @@ import { createPublicClient, http } from "viem"
 export const FEE_RECIPIENT = "0xe89c45ecae19ff852ec1724c85f193ae12ed0c0a" as const
 
 const RPC_BY_CHAIN: Record<string, string> = {
-  Arc_Testnet: "https://rpc.blockdaemon.testnet.arc.network",
-  Ethereum_Sepolia: "https://rpc.sepolia.org",
+  Arc_Testnet: "https://5042002.rpc.thirdweb.com",
+  Ethereum_Sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
   Base_Sepolia: "https://sepolia.base.org",
 }
 
