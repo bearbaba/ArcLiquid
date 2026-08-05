@@ -11,6 +11,7 @@ import { WagmiProvider, http, fallback } from "wagmi"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit"
 import "@rainbow-me/rainbowkit/styles.css"
+import { sepolia, baseSepolia } from "viem/chains"
 import { ThemeProvider } from "./lib/theme"
 import App from "./App"
 import "./index.css"
@@ -36,7 +37,7 @@ const arcTestnet = {
 const config = getDefaultConfig({
   appName: "Flowlend",
   projectId: "13d1dd812b4dd10a1d67aba4c9431081",
-  chains: [arcTestnet],
+  chains: [arcTestnet, sepolia, baseSepolia],
   transports: {
     [arcTestnet.id]: fallback(
       ARC_RPCS.map((url) =>
@@ -47,6 +48,14 @@ const config = getDefaultConfig({
         })
       )
     ),
+    [sepolia.id]: http("https://ethereum-sepolia-rpc.publicnode.com", {
+      timeout: 12_000,
+      retryCount: 2,
+    }),
+    [baseSepolia.id]: http("https://sepolia.base.org", {
+      timeout: 12_000,
+      retryCount: 2,
+    }),
   },
 })
 
